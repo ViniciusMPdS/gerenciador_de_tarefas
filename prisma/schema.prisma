@@ -4,53 +4,59 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
+// ... suas models (Usuario, Projeto, etc) continuam iguais abaixo ...
 model Usuario {
-  id               String            @id @default(uuid())
-  nome             String
-  email            String            @unique
-  senha            String
-  membroWorkspaces MembroWorkspace[]
-  tarefas          Tarefa[]
-  dt_insert         DateTime          @default(now())
+  id      String   @id @default(uuid())
+  email   String   @unique
+  nome    String?
+  senha   String
+  dt_insert DateTime @default(now())
+  
+  // Relações
+  membros MembroWorkspace[]
+  tarefas Tarefa[]
 }
 
 model Workspace {
-  id        String            @id @default(uuid())
+  id        String   @id @default(uuid())
   nome      String
-  projetos  Projeto[]
+  dt_insert  DateTime @default(now())
+
   membros   MembroWorkspace[]
-  dt_insert  DateTime          @default(now())
+  projetos  Projeto[]
 }
 
 model MembroWorkspace {
   id          String    @id @default(uuid())
-  workspace_id String
+  papel       String    @default("MEMBER") // ADMIN, MEMBER
   usuario_id   String
-  papel       String    // ADMIN, MEMBRO, OBSERVADOR
-  workspace   Workspace @relation(fields: [workspace_id], references: [id])
+  workspace_id String
+  
   usuario     Usuario   @relation(fields: [usuario_id], references: [id])
+  workspace   Workspace @relation(fields: [workspace_id], references: [id])
 }
 
 model Projeto {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   nome        String
+  descricao   String?
   workspace_id String
+  
   workspace   Workspace @relation(fields: [workspace_id], references: [id])
   tarefas     Tarefa[]
-  dt_insert    DateTime  @default(now())
 }
 
 model Tarefa {
   id          String   @id @default(uuid())
   titulo      String
-  descricao   String?
   status      String   @default("PENDENTE") // PENDENTE, FAZENDO, FEITO
   prioridade  String   @default("MEDIA")    // BAIXA, MEDIA, ALTA
   projetoId   String
-  usuario_id   String?
+  usuario_id   String?  // Pode ser nulo se ninguém pegou a tarefa ainda
+
   projeto     Projeto  @relation(fields: [projetoId], references: [id])
-  responsavel Usuario? @relation(fields: [usuario_id], references: [id])
-  dt_insert    DateTime @default(now())
+  usuario     Usuario? @relation(fields: [usuario_id], references: [id])
 }
