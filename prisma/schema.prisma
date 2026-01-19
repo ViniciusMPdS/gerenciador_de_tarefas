@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id               String            @id @default(uuid())
+  nome             String
+  email            String            @unique
+  senha            String
+  membroWorkspaces MembroWorkspace[]
+  tarefas          Tarefa[]
+  dt_insert         DateTime          @default(now())
+}
+
+model Workspace {
+  id        String            @id @default(uuid())
+  nome      String
+  projetos  Projeto[]
+  membros   MembroWorkspace[]
+  dt_insert  DateTime          @default(now())
+}
+
+model MembroWorkspace {
+  id          String    @id @default(uuid())
+  workspace_id String
+  usuario_id   String
+  papel       String    // ADMIN, MEMBRO, OBSERVADOR
+  workspace   Workspace @relation(fields: [workspace_id], references: [id])
+  usuario     Usuario   @relation(fields: [usuario_id], references: [id])
+}
+
+model Projeto {
+  id          String    @id @default(uuid())
+  nome        String
+  workspace_id String
+  workspace   Workspace @relation(fields: [workspace_id], references: [id])
+  tarefas     Tarefa[]
+  dt_insert    DateTime  @default(now())
+}
+
+model Tarefa {
+  id          String   @id @default(uuid())
+  titulo      String
+  descricao   String?
+  status      String   @default("PENDENTE") // PENDENTE, FAZENDO, FEITO
+  prioridade  String   @default("MEDIA")    // BAIXA, MEDIA, ALTA
+  projetoId   String
+  usuario_id   String?
+  projeto     Projeto  @relation(fields: [projetoId], references: [id])
+  responsavel Usuario? @relation(fields: [usuario_id], references: [id])
+  dt_insert    DateTime @default(now())
+}
