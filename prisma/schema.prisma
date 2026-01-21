@@ -7,56 +7,73 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ... suas models (Usuario, Projeto, etc) continuam iguais abaixo ...
-model Usuario {
-  id      String   @id @default(uuid())
-  email   String   @unique
-  nome    String?
-  senha   String
-  dt_insert DateTime @default(now())
-  
-  // Relações
-  membros MembroWorkspace[]
-  tarefas Tarefa[]
-}
-
 model Workspace {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   nome      String
-  dt_insert  DateTime @default(now())
-
-  membros   MembroWorkspace[]
+  dt_insert DateTime  @default(now())
+  dt_update DateTime  @updatedAt
   projetos  Projeto[]
+  usuarios  Usuario[]
 }
 
-model MembroWorkspace {
-  id          String    @id @default(uuid())
-  papel       String    @default("MEMBER") // ADMIN, MEMBER
-  usuario_id   String
+model Usuario {
+  id           String       @id @default(uuid())
+  nome         String
+  email        String       @unique
   workspace_id String
-  
-  usuario     Usuario   @relation(fields: [usuario_id], references: [id])
-  workspace   Workspace @relation(fields: [workspace_id], references: [id])
+  workspace    Workspace    @relation(fields: [workspace_id], references: [id])
+  tarefas      Tarefa[]     // Tarefas que ele é responsável
+  comentarios  Comentario[] // Comentários que ele fez
+  dt_insert    DateTime     @default(now())
 }
 
 model Projeto {
-  id          String   @id @default(uuid())
-  nome        String
-  descricao   String?
+  id           String    @id @default(uuid())
+  nome         String
+  descricao    String?   @db.Text
   workspace_id String
-  
-  workspace   Workspace @relation(fields: [workspace_id], references: [id])
-  tarefas     Tarefa[]
+  workspace    Workspace @relation(fields: [workspace_id], references: [id])
+  tarefas      Tarefa[]
+  dt_insert    DateTime  @default(now())
+  dt_update    DateTime  @updatedAt
 }
 
 model Tarefa {
-  id          String   @id @default(uuid())
-  titulo      String
-  status      String   @default("PENDENTE") // PENDENTE, FAZENDO, FEITO
-  prioridade  String   @default("MEDIA")    // BAIXA, MEDIA, ALTA
-  projetoId   String
-  usuario_id   String?  // Pode ser nulo se ninguém pegou a tarefa ainda
+  id             String    @id @default(uuid())
+  titulo         String
+  descricao      String?   @db.Text // Descrição longa
+  prioridade     String    @default("MEDIA") // BAIXA, MEDIA, ALTA
+  status         String    @default("PENDENTE") // PENDENTE, FAZENDO, FEITO
+  
+  // Controle de Datas para SPRINT e CALENDÁRIO
+  dt_inicio      DateTime? // Quando a tarefa deve começar
+  dt_vencimento  DateTime? // Prazo final (Deadline)
+  dt_conclusao   DateTime? // Quando foi de fato terminada
+  
+  // Recorrência (Ex: 'DIARIO', 'SEMANAL', 'MENSAL')
+  recorrencia    String?   
 
-  projeto     Projeto  @relation(fields: [projetoId], references: [id])
-  usuario     Usuario? @relation(fields: [usuario_id], references: [id])
+  projeto_id     String
+  projeto        Projeto   @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
+  
+  usuario_id     String?   // Responsável pela tarefa
+  usuario        Usuario?  @relation(fields: [usuario_id], references: [id])
+
+  comentarios    Comentario[]
+
+  dt_insert      DateTime  @default(now())
+  dt_update      DateTime  @updatedAt
+}
+
+model Comentario {
+  id          String   @id @default(uuid())
+  texto       String   @db.Text
+  
+  tarefa_id   String
+  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+  
+  usuario_id  String
+  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+
+  dt_insert   DateTime @default(now())
 }

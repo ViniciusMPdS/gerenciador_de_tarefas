@@ -1,65 +1,80 @@
-import Image from "next/image";
+import { prisma } from '@/lib/prisma';
+import Link from 'next/link';
 
-export default function Home() {
+async function getProjetos() {
+  const projetos = await prisma.projeto.findMany({
+    include: { tarefas: true, workspace: true },
+    orderBy: { dt_insert: 'desc' } // <--- Mudamos para dt_insert
+  });
+  return projetos;
+}
+
+export default async function DashboardHome() {
+  const projetos = await getProjetos();
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="p-8 md:p-12 max-w-7xl mx-auto">
+      <header className="mb-10">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{saudacao}, Admin</h1>
+        <p className="text-gray-500">Resumo dos projetos ativos.</p>
+      </header>
+
+      <section>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <span className="w-1.5 h-6 bg-rose-500 rounded-full"></span>
+          Projetos Recentes
+        </h2>
+
+        {projetos.length === 0 ? (
+          <div className="text-gray-500 italic">Nenhum projeto encontrado.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projetos.map((projeto) => {
+              const total = projeto.tarefas.length;
+              const feitos = projeto.tarefas.filter(t => t.status === 'FEITO').length;
+              const progresso = total === 0 ? 0 : Math.round((feitos / total) * 100);
+
+              return (
+                <Link key={projeto.id} href={`/projeto/${projeto.id}`} className="group">
+                  <article className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md hover:border-rose-200 transition-all duration-300 h-full flex flex-col justify-between cursor-pointer">
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-rose-50 transition-colors">
+                          <span className="text-xl">📂</span>
+                        </div>
+                        <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                          {projeto.workspace?.nome || 'Geral'}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-rose-600 transition-colors">
+                        {projeto.nome}
+                      </h3>
+                      <p className="text-sm text-gray-500 line-clamp-2">
+                        {projeto.descricao || "Sem descrição definida."}
+                      </p>
+                    </div>
+
+                    <div className="mt-6">
+                      <div className="flex justify-between text-xs font-medium text-gray-500 mb-1.5">
+                        <span>Progresso</span>
+                        <span>{progresso}%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-rose-500 to-orange-400 h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${progresso}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </article>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
