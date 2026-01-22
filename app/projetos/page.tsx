@@ -1,52 +1,43 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { criarProjeto } from '@/app/actions' // Importamos a ação
 
-async function getDados() {
-  const projetos = await prisma.projeto.findMany({ include: { workspace: true, tarefas: true } })
-  const workspace = await prisma.workspace.findFirst() // Precisamos de um ID pra criar
-  return { projetos, workspaceId: workspace?.id }
-}
-
-export default async function ProjetosPage() {
-  const { projetos, workspaceId } = await getDados()
+export default async function TodosProjetosPage() {
+  // Busca TODOS, ordenados por nome
+  const projetos = await prisma.projeto.findMany({
+    orderBy: { nome: 'asc' },
+    include: {
+      _count: { select: { tarefas: true } }
+    }
+  })
 
   return (
-    <div className="p-8 md:p-12 max-w-7xl mx-auto">
-      <header className="mb-8 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Meus Projetos</h1>
-          <p className="text-gray-500 mt-1">Gerencie todos os seus quadros aqui.</p>
-        </div>
-        
-        {/* Formulário Simples para Criar Projeto */}
-        <form action={criarProjeto} className="flex gap-2">
-          <input type="hidden" name="workspaceId" value={workspaceId || ''} />
-          <input 
-            name="nome" 
-            placeholder="Nome do novo projeto..." 
-            className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none"
-            required 
-          />
-          <button type="submit" className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-            + Criar
-          </button>
-        </form>
+    <div className="p-8 md:p-12 max-w-7xl mx-auto min-h-screen">
+      <header className="mb-8 border-b border-gray-200 pb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Todos os Projetos</h1>
+        <p className="text-gray-500 mt-2">Lista completa de {projetos.length} projetos.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projetos.map(projeto => (
-          <Link key={projeto.id} href={`/projeto/${projeto.id}`} className="group">
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-rose-200 h-40 flex flex-col justify-between">
-              <div>
-                <h3 className="font-bold text-gray-800 text-lg group-hover:text-rose-600 transition-colors">{projeto.nome}</h3>
-                <p className="text-xs text-gray-400 mt-1">{projeto.workspace?.nome}</p>
+          <Link 
+            href={`/projeto/${projeto.id}`} 
+            key={projeto.id}
+            className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 font-bold text-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                {projeto.nome.substring(0, 1).toUpperCase()}
               </div>
-              <div className="flex justify-between items-center text-xs text-gray-500 border-t pt-4 border-gray-50">
-                <span>{projeto.tarefas.length} tarefas</span>
-                <span className="text-indigo-600 font-medium">Abrir Quadro →</span>
-              </div>
+              <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                {projeto._count.tarefas} tarefas
+              </span>
             </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-1 group-hover:text-indigo-600 transition-colors truncate">
+              {projeto.nome}
+            </h3>
+            <p className="text-sm text-gray-500 line-clamp-2">
+              {projeto.descricao || 'Sem descrição.'}
+            </p>
           </Link>
         ))}
       </div>

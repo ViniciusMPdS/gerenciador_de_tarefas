@@ -1,107 +1,108 @@
 'use client'
 
-import { useState } from 'react'
-import { atualizarStatusTarefa, excluirTarefa } from '@/app/actions'
-import ModalTarefa from './ModalTarefa' // Importa a Modal
+import { useDrag } from 'react-dnd'
+import { toggleConcluida } from '@/app/actions'
+import { useState, useTransition } from 'react'
+import ModalTarefa from './ModalTarefa'
 
 interface CardProps {
   tarefa: any
-  usuarios: any[] // Recebe a lista de usuários
+  usuarios: any[]
+  projetos?: any[]
 }
 
-export default function CardKanban({ tarefa, usuarios }: CardProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false) // Controle da modal
+export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
+  const [isPending, startTransition] = useTransition()
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const handleStatusChange = async (novoStatus: string) => {
-    setIsLoading(true)
-    await atualizarStatusTarefa(tarefa.id, novoStatus, tarefa.projeto_id)
-    setIsLoading(false)
+  const [{ isDragging }, dragRef] = useDrag(() => ({
+    type: 'TAREFA',
+    item: { id: tarefa.id, colunaId: tarefa.coluna_id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }), [tarefa.id, tarefa.coluna_id])
+
+  const handleCheck = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation()
+    const novoValor = e.target.checked
+    startTransition(() => {
+      toggleConcluida(tarefa.id, novoValor, tarefa.projeto_id)
+    })
   }
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation() // Impede que abra a modal ao clicar na lixeira
-    if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
-      setIsLoading(true)
-      await excluirTarefa(tarefa.id, tarefa.projeto_id)
-      setIsLoading(false)
-    }
+  const corPrioridade = {
+    ALTA: 'bg-red-100 text-red-700 border-red-200',
+    MEDIA: 'bg-orange-100 text-orange-700 border-orange-200',
+    BAIXA: 'bg-green-100 text-green-700 border-green-200'
   }
-
-  const dataFormatada = tarefa.dt_vencimento 
-    ? new Date(tarefa.dt_vencimento).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})
-    : null
-
-  // Iniciais do Usuário
-  const iniciaisUsuario = tarefa.usuario 
-    ? tarefa.usuario.nome.slice(0, 2).toUpperCase() 
-    : null
 
   return (
     <>
-      <div 
-        onClick={() => setShowModal(true)} // Abre a modal ao clicar
-        className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer hover:border-indigo-200 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+      <div
+        ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
+        onClick={() => setIsModalOpen(true)}
+        className={`bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all group relative ${isDragging ? 'opacity-50' : 'opacity-100'} ${tarefa.concluida ? 'bg-gray-50' : ''}`}
       >
-        
-        <div className="flex justify-between items-start mb-2">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide border ${
-            tarefa.prioridade === 'ALTA' ? 'bg-red-50 text-red-600 border-red-100' : 
-            tarefa.prioridade === 'MEDIA' ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-            'bg-green-50 text-green-600 border-green-100'
-          }`}>
+        <div className="flex justify-between items-start mb-1">
+          {/* Badge de Prioridade */}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${corPrioridade[tarefa.prioridade as keyof typeof corPrioridade] || 'bg-gray-100 text-gray-600'}`}>
             {tarefa.prioridade}
           </span>
           
-          <button 
-            onClick={handleDelete}
-            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 z-10"
-          >
-            🗑️
-          </button>
+          <input 
+            type="checkbox"
+            checked={tarefa.concluida}
+            onChange={handleCheck}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500 cursor-pointer"
+          />
         </div>
 
-        <p className="text-gray-800 font-medium text-sm mb-3 leading-snug">
-          {tarefa.titulo}
-        </p>
+        {/* --- NOVO: NOME DO PROJETO --- */}
+        {tarefa.projeto && (
+           <div className="mb-1">
+             <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide truncate block">
+               {tarefa.projeto.nome}
+             </span>
+           </div>
+        )}
 
-        {/* Footer com Data e Usuário */}
-        <div className="flex justify-between items-end mt-2">
-          <div className="flex items-center gap-2">
-             {dataFormatada && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
-                <span>📅</span> {dataFormatada}
-              </div>
-            )}
+        <h4 className={`text-sm font-medium text-gray-800 mb-3 line-clamp-2 ${tarefa.concluida ? 'line-through text-gray-400' : ''}`}>
+          {tarefa.titulo}
+        </h4>
+
+        <div className="flex justify-between items-center mt-auto">
+          {/* Data */}
+          <div className="flex items-center text-xs text-gray-400 gap-1">
+            <span>📅</span>
+            <span>
+              {tarefa.dt_vencimento 
+                ? new Date(tarefa.dt_vencimento).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) 
+                : '--/--'}
+            </span>
           </div>
 
-          {iniciaisUsuario && (
-            <div className="w-6 h-6 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-[10px] font-bold text-indigo-700" title={tarefa.usuario.nome}>
-              {iniciaisUsuario}
-            </div>
+          {/* Avatar Responsável */}
+          {tarefa.usuario ? (
+             <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 border border-indigo-200" title={tarefa.usuario.nome}>
+               {tarefa.usuario.nome.substring(0, 2).toUpperCase()}
+             </div>
+          ) : (
+             <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 border border-gray-200">
+               ?
+             </div>
           )}
-        </div>
-
-        {/* Seletor de Status (Mini) */}
-        <div className="mt-3 pt-2 border-t border-gray-50" onClick={(e) => e.stopPropagation()}>
-           <select 
-            value={tarefa.status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className="w-full text-[10px] bg-transparent text-gray-400 hover:text-gray-600 outline-none cursor-pointer text-right"
-          >
-            <option value="PENDENTE">Mover para: A Fazer</option>
-            <option value="FAZENDO">Mover para: Fazendo</option>
-            <option value="FEITO">Mover para: Concluído</option>
-          </select>
         </div>
       </div>
 
-      {/* RENDERIZA A MODAL SE ESTIVER ABERTA */}
-      {showModal && (
+      {isModalOpen && (
         <ModalTarefa 
           tarefa={tarefa} 
-          usuarios={usuarios} 
-          onClose={() => setShowModal(false)} 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          usuarios={usuarios}
+          projetos={projetos || []}
         />
       )}
     </>

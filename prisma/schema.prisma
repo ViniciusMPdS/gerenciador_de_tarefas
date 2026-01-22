@@ -8,23 +8,44 @@ datasource db {
 }
 
 model Workspace {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   nome      String
-  dt_insert DateTime  @default(now())
-  dt_update DateTime  @updatedAt
-  projetos  Projeto[]
+  equipes   Equipe[]
+  colunas   Coluna[] // O Workspace é dono das definições de colunas
   usuarios  Usuario[]
+  projetos  Projeto[]
+  dt_insert DateTime @default(now())
+}
+
+model Equipe {
+  id           String    @id @default(uuid())
+  nome         String
+  workspace_id String
+  workspace    Workspace @relation(fields: [workspace_id], references: [id])
+  projetos     Projeto[]
+  dt_insert    DateTime  @default(now())
+}
+
+model Coluna {
+  id           String    @id @default(uuid())
+  nome         String    // Ex: "Mapeamento", "Expedição"
+  cor          String?   // Ex: "bg-blue-500" (Opcional, para visual)
+  workspace_id String
+  workspace    Workspace @relation(fields: [workspace_id], references: [id])
+  tarefas      Tarefa[]  // Tarefas que estão nesta coluna
+  projetos     ProjetoColuna[] // Relação N:N com projetos
+  dt_insert    DateTime  @default(now())
 }
 
 model Usuario {
-  id           String       @id @default(uuid())
+  id           String    @id @default(uuid())
   nome         String
-  email        String       @unique
+  email        String    @unique
   workspace_id String
-  workspace    Workspace    @relation(fields: [workspace_id], references: [id])
-  tarefas      Tarefa[]     // Tarefas que ele é responsável
-  comentarios  Comentario[] // Comentários que ele fez
-  dt_insert    DateTime     @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id])
+  tarefas      Tarefa[]
+  comentarios  Comentario[]
+  dt_insert    DateTime  @default(now())
 }
 
 model Projeto {
@@ -33,47 +54,57 @@ model Projeto {
   descricao    String?   @db.Text
   workspace_id String
   workspace    Workspace @relation(fields: [workspace_id], references: [id])
+  equipe_id    String?   
+  equipe       Equipe?   @relation(fields: [equipe_id], references: [id])
   tarefas      Tarefa[]
+  // O Projeto escolhe quais colunas vai usar e em qual ordem
+  colunas      ProjetoColuna[] 
   dt_insert    DateTime  @default(now())
   dt_update    DateTime  @updatedAt
 }
 
+// TABELA PIVÔ: Liga Projeto e Coluna com uma ORDEM específica
+model ProjetoColuna {
+  projeto_id String
+  projeto    Projeto @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
+  coluna_id  String
+  coluna     Coluna  @relation(fields: [coluna_id], references: [id], onDelete: Cascade)
+  ordem      Int     // 1, 2, 3... define a posição no Kanban
+  @@id([projeto_id, coluna_id]) // Chave composta
+}
+
 model Tarefa {
-  id             String    @id @default(uuid())
-  titulo         String
-  descricao      String?   @db.Text // Descrição longa
-  prioridade     String    @default("MEDIA") // BAIXA, MEDIA, ALTA
-  status         String    @default("PENDENTE") // PENDENTE, FAZENDO, FEITO
+  id            String    @id @default(uuid())
+  titulo        String
+  descricao     String?   @db.Text
+  prioridade    String    @default("MEDIA")
   
-  // Controle de Datas para SPRINT e CALENDÁRIO
-  dt_inicio      DateTime? // Quando a tarefa deve começar
-  dt_vencimento  DateTime? // Prazo final (Deadline)
-  dt_conclusao   DateTime? // Quando foi de fato terminada
+  // MUDANÇA AQUI: Sai 'status', entra 'coluna' e 'concluida'
+  concluida     Boolean   @default(false) // O Checkbox
   
-  // Recorrência (Ex: 'DIARIO', 'SEMANAL', 'MENSAL')
-  recorrencia    String?   
+  coluna_id     String?   // Em qual etapa ela está visualmente?
+  coluna        Coluna?   @relation(fields: [coluna_id], references: [id])
 
-  projeto_id     String
-  projeto        Projeto   @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
+  dt_vencimento DateTime?
+  dt_conclusao  DateTime?
+  dt_insert     DateTime  @default(now())
+  dt_update     DateTime  @updatedAt
+
+  projeto_id    String
+  projeto       Projeto   @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
   
-  usuario_id     String?   // Responsável pela tarefa
-  usuario        Usuario?  @relation(fields: [usuario_id], references: [id])
+  usuario_id    String?   
+  usuario       Usuario?  @relation(fields: [usuario_id], references: [id])
 
-  comentarios    Comentario[]
-
-  dt_insert      DateTime  @default(now())
-  dt_update      DateTime  @updatedAt
+  comentarios   Comentario[]
 }
 
 model Comentario {
-  id          String   @id @default(uuid())
-  texto       String   @db.Text
-  
-  tarefa_id   String
-  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
-  
-  usuario_id  String
-  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
-
-  dt_insert   DateTime @default(now())
+  id        String   @id @default(uuid())
+  texto     String   @db.Text
+  tarefa_id String
+  tarefa    Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+  usuario_id String
+  usuario   Usuario  @relation(fields: [usuario_id], references: [id])
+  dt_insert DateTime @default(now())
 }
