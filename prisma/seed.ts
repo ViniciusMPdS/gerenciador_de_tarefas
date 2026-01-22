@@ -1,148 +1,144 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
+import * as dotenv from 'dotenv';
 
-const prisma = new PrismaClient()
+dotenv.config();
 
-async function main() {
-  console.log('🌱 Iniciando a seed do banco...')
+const prisma = new PrismaClient();
 
-  // 1. Limpar banco (Deletar filhos primeiro para não dar erro de chave estrangeira)
-  await prisma.comentario.deleteMany()
-  await prisma.tarefa.deleteMany()
-  await prisma.projeto.deleteMany()
-  await prisma.usuario.deleteMany()
-  await prisma.workspace.deleteMany()
+// --- CONFIGURAÇÃO ---
+const ASANA_PAT = process.env.ASANA_PAT;
+const ASANA_PROJECT_ID = '1210948147293153'; // ID do Projeto "Mãe" no Asana
 
-  console.log('🧹 Banco limpo.')
+const asanaApi = axios.create({
+  baseURL: 'https://app.asana.com/api/1.0',
+  headers: { Authorization: `Bearer ${ASANA_PAT}` },
+});
 
-  // 2. Criar Workspace
-  const workspace = await prisma.workspace.create({
-    data: {
-      nome: 'Workspace Principal',
-    }
-  })
-
-  // 3. Criar Usuários (Para testar filtros e responsaveis)
-  const userAdmin = await prisma.usuario.create({
-    data: { nome: 'Vinicius (Admin)', email: 'vinicius@admin.com', workspace_id: workspace.id }
-  })
-  
-  const userDev = await prisma.usuario.create({
-    data: { nome: 'Carlos (Dev)', email: 'carlos@dev.com', workspace_id: workspace.id }
-  })
-
-  const userDesign = await prisma.usuario.create({
-    data: { nome: 'Ana (Design)', email: 'ana@design.com', workspace_id: workspace.id }
-  })
-
-  // 4. Criar Projetos
-  const projDev = await prisma.projeto.create({
-    data: {
-      nome: 'Desenvolvimento do SaaS',
-      descricao: 'Criação da plataforma de gestão estilo Asana.',
-      workspace_id: workspace.id
-    }
-  })
-
-  const projMkt = await prisma.projeto.create({
-    data: {
-      nome: 'Marketing e Lançamento',
-      descricao: 'Campanhas de redes sociais e landing page.',
-      workspace_id: workspace.id
-    }
-  })
-
-  // Datas Dinâmicas (Para a seed sempre funcionar independente do dia que rodar)
-  const hoje = new Date()
-  const amanha = new Date(hoje)
-  amanha.setDate(amanha.getDate() + 1)
-  
-  const semanaQueVem = new Date(hoje)
-  semanaQueVem.setDate(semanaQueVem.getDate() + 7)
-
-  const mesPassado = new Date(hoje)
-  mesPassado.setDate(mesPassado.getDate() - 10)
-
-  // 5. Criar Tarefas (Misturando Status, Prioridades e Datas)
-
-  // --- TAREFAS DO PROJETO DEV ---
-  
-  // Tarefa 1: Atrasada e Feita
-  await prisma.tarefa.create({
-    data: {
-      titulo: 'Configurar Ambiente Docker',
-      descricao: 'Configurar containers do Postgres e Node.js para garantir ambiente igual para todos.',
-      status: 'FEITO',
-      prioridade: 'ALTA',
-      dt_vencimento: mesPassado, // Venceu mês passado
-      dt_conclusao: mesPassado,
-      projeto_id: projDev.id,
-      usuario_id: userAdmin.id // Vinicius fez
-    }
-  })
-
-  // Tarefa 2: Urgente para Hoje (Vai aparecer na Sprint Semana)
-  await prisma.tarefa.create({
-    data: {
-      titulo: 'Corrigir Bug na Autenticação',
-      descricao: 'Usuários não conseguem logar se a senha tiver caracteres especiais. Urgente!',
-      status: 'FAZENDO',
-      prioridade: 'ALTA',
-      dt_vencimento: hoje, // Vence hoje
-      projeto_id: projDev.id,
-      usuario_id: userDev.id // Carlos fazendo
-    }
-  })
-
-  // Tarefa 3: Para Amanhã (Vai aparecer na Sprint Semana)
-  await prisma.tarefa.create({
-    data: {
-      titulo: 'Criar Tela de Dashboard',
-      descricao: 'Implementar os gráficos de barras e a lista de projetos recentes conforme o Figma.',
-      status: 'PENDENTE',
-      prioridade: 'MEDIA',
-      dt_vencimento: amanha,
-      projeto_id: projDev.id,
-      usuario_id: userDev.id
-    }
-  })
-
-  // --- TAREFAS DO PROJETO MARKETING ---
-
-  // Tarefa 4: Design (Semana que vem - Testar Sprint Mês)
-  await prisma.tarefa.create({
-    data: {
-      titulo: 'Criar Posts para Instagram',
-      descricao: 'Pack com 5 posts carrossel sobre produtividade.',
-      status: 'FAZENDO',
-      prioridade: 'MEDIA',
-      dt_vencimento: semanaQueVem,
-      projeto_id: projMkt.id,
-      usuario_id: userDesign.id
-    }
-  })
-
-  // Tarefa 5: Backlog (Sem data e sem dono)
-  await prisma.tarefa.create({
-    data: {
-      titulo: 'Pesquisar Concorrentes',
-      descricao: 'Levantar funcionalidades do Trello e Jira para comparação.',
-      status: 'PENDENTE',
-      prioridade: 'BAIXA',
-      dt_vencimento: null, // Sem data
-      projeto_id: projMkt.id,
-      usuario_id: null // Sem dono
-    }
-  })
-
-  console.log('✅ Seed finalizada com sucesso!')
+// Função para pegar um item aleatório de um array
+function getRandomItem<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect()
-  })
-  .catch(async (e) => {
-    console.error(e)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+async function main() {
+  if (!ASANA_PAT) {
+    console.error('❌ ERRO: ASANA_PAT não está no arquivo .env');
+    return;
+  }
+
+  console.log('🧹 Limpando dados antigos (Tarefas, Projetos e Comentários)...');
+
+  // A ordem importa por causa das chaves estrangeiras (Foreign Keys)
+  // 1. Apaga filhos (Comentários)
+  await prisma.comentario.deleteMany({}); 
+  
+  // 2. Apaga tarefas
+  await prisma.tarefa.deleteMany({});
+  
+  // 3. Apaga projetos
+  await prisma.projeto.deleteMany({});
+
+  console.log('✨ Banco limpo! (Usuários e Workspaces foram mantidos)');
+
+  console.log('🚀 Iniciando Seed: Seções Asana -> Projetos DB...');
+
+  try {
+    // 1. BUSCAR CONTEXTO DO BANCO (Workspace e Usuários)
+    
+    // Pega o primeiro workspace que achar ou cria um se não existir
+    let workspace = await prisma.workspace.findFirst();
+    if (!workspace) {
+      console.log('⚠️ Nenhum workspace encontrado. Criando um padrão...');
+      workspace = await prisma.workspace.create({
+        data: { nome: 'Workspace Seed', id: 'workspace-seed-padrao' }
+      });
+    }
+
+    // Busca todos os usuários existentes para o sorteio
+    const usuariosExistentes = await prisma.usuario.findMany({
+      where: { workspace_id: workspace.id }
+    });
+
+    if (usuariosExistentes.length === 0) {
+      console.error('❌ ERRO: Nenhum usuário encontrado no banco para atribuir as tarefas.');
+      console.log('💡 Dica: Crie pelo menos um usuário no banco antes de rodar esse seed.');
+      return;
+    }
+
+    console.log(`👥 ${usuariosExistentes.length} usuários encontrados para distribuição de tarefas.`);
+
+    // 2. BUSCAR SEÇÕES NO ASANA (que virarão PROJETOS)
+    console.log(`📡 Buscando seções do projeto Asana ${ASANA_PROJECT_ID}...`);
+    
+    const sectionsResponse = await asanaApi.get(`/projects/${ASANA_PROJECT_ID}/sections`);
+    const sections = sectionsResponse.data.data;
+
+    console.log(`📂 ${sections.length} seções encontradas. Transformando em Projetos...`);
+
+    for (const section of sections) {
+      // Pula seções com nomes genéricos se quiser (opcional)
+      if (section.name === 'Untitled Section') continue;
+
+      console.log(`\n🔹 Processando Seção: "${section.name}"`);
+
+      // 2.1 Criar o Projeto no Banco (Baseado na Seção)
+      const novoProjeto = await prisma.projeto.create({
+        data: {
+          nome: section.name, // Nome da Seção vira Nome do Projeto
+          descricao: `Importado da seção do Asana: ${section.name}`,
+          workspace_id: workspace.id,
+        }
+      });
+
+      // 3. BUSCAR TAREFAS DESSA SEÇÃO ESPECÍFICA
+      // Ao buscar por section, garantimos que pegamos as tarefas certas
+      const tasksResponse = await asanaApi.get(`/sections/${section.gid}/tasks`, {
+        params: {
+          opt_fields: 'name,notes,due_on,completed' 
+        }
+      });
+      
+      const tasks = tasksResponse.data.data;
+      console.log(`   ↳ Encontradas ${tasks.length} tarefas. Salvando...`);
+
+      if (tasks.length === 0) continue;
+
+      // 4. SALVAR TAREFAS NO BANCO
+      for (const t of tasks) {
+        // Ignora tarefas sem nome (linhas vazias no Asana)
+        if (!t.name || t.name.trim() === '') continue;
+
+        // Sorteia um usuário responsável
+        const responsavel = getRandomItem(usuariosExistentes);
+
+        await prisma.tarefa.create({
+          data: {
+            titulo: t.name,
+            descricao: t.notes || '',
+            status: t.completed ? 'FEITO' : 'PENDENTE', // Mapeamento simples
+            prioridade: 'MEDIA',
+            dt_vencimento: t.due_on ? new Date(t.due_on) : null,
+            dt_conclusao: t.completed ? new Date() : null,
+            
+            // Relacionamentos
+            projeto_id: novoProjeto.id,
+            usuario_id: responsavel.id,
+          }
+        });
+      }
+    }
+
+    console.log('\n✅ Seed finalizado com sucesso!');
+
+  } catch (error: any) {
+    if (error.response) {
+      console.error('❌ Erro na API do Asana:', error.response.status, error.response.data);
+    } else {
+      console.error('❌ Erro interno:', error);
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main();
