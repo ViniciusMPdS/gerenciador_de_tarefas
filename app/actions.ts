@@ -6,6 +6,22 @@ import { redirect } from 'next/navigation'
 
 // --- TAREFAS ---
 
+// --- AÇÃO RÁPIDA: Atualizar Data (Drag and Drop) ---
+export async function atualizarDataTarefa(tarefaId: string, novaData: Date, projetoId: string) {
+  'use server'
+  
+  // Garante que a data seja salva limpa no banco
+  await prisma.tarefa.update({
+    where: { id: tarefaId },
+    data: { dt_vencimento: novaData }
+  })
+
+  // Revalida todas as rotas possíveis onde a tarefa aparece
+  revalidatePath(`/projeto/${projetoId}`)
+  revalidatePath(`/minhas-tarefas`)
+  revalidatePath(`/sprint`)
+}
+
 export async function criarTarefa(formData: FormData) {
   const titulo = formData.get('titulo') as string
   const prioridade = formData.get('prioridade') as string

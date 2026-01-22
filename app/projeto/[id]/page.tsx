@@ -1,13 +1,12 @@
 import { prisma } from '@/lib/prisma'
-import TarefaViewManager from '@/components/TarefaViewManager'
+import MinhasTarefasView from '@/components/MinhasTarefasView' // Usamos o componente universal
 import ModalConfigProjeto from '@/components/ModalConfigProjeto'
-import ModalCriarTarefa from '@/components/ModalCriarTarefa' // <--- IMPORTANTE
+import ModalCriarTarefa from '@/components/ModalCriarTarefa' 
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   
-  // NOVO: REGISTRAR ACESSO (O "Touch") ---
-  // Isso atualiza a data sempre que você entra na página
+  // Touch
   await prisma.projeto.update({
     where: { id },
     data: { dt_acesso: new Date() }
@@ -29,17 +28,17 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   // 2. Busca Tarefas
   const tarefas = await prisma.tarefa.findMany({
     where: { projeto_id: id },
-    include: { usuario: true, coluna: true },
+    include: { usuario: true, coluna: true }, // Inclui coluna para o filtro funcionar
     orderBy: { prioridade: 'desc' }
   })
 
   // 3. Busca Usuários
   const usuarios = await prisma.usuario.findMany()
 
-  // 4. Biblioteca Geral
+  // 4. Biblioteca Geral (Para o modal de config)
   const bibliotecaColunas = await prisma.coluna.findMany({ orderBy: { nome: 'asc' } })
 
-  // 5. Colunas do Kanban
+  // 5. Colunas do Kanban (As etapas desse projeto)
   const colunasDoKanban = projeto.colunas.map(pc => pc.coluna);
 
   return (
@@ -53,23 +52,21 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Botão de Configurar Etapas */}
           <ModalConfigProjeto 
             projeto={projeto} 
             colunasDisponiveis={bibliotecaColunas} 
             colunasDoProjeto={projeto.colunas}     
           />
 
-          {/* Botão de Nova Tarefa (Obrigatório escolher coluna) */}
           <ModalCriarTarefa 
              projetoId={projeto.id}
-             colunas={colunasDoKanban} // Passa apenas as colunas deste projeto
+             colunas={colunasDoKanban} 
              usuarios={usuarios}
           />
         </div>
       </header>
 
-      {/* ÁREA DE TAREFAS */}
+      {/* ÁREA DE CONTEÚDO (UNIVERSAL) */}
       <div className="flex-1 overflow-hidden p-8">
         
         {colunasDoKanban.length === 0 ? (
@@ -79,11 +76,19 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
             <p className="text-sm text-indigo-600">Clique na engrenagem ⚙️ acima para adicionar colunas.</p>
           </div>
         ) : (
-          <TarefaViewManager 
-            tarefas={tarefas} 
-            usuarios={usuarios} 
-            todasColunas={colunasDoKanban}
-            mostrarVazias={true} // Força mostrar colunas vazias
+          /* AQUI ESTÁ A MÁGICA: Reutilizamos o componente da Sprint/Minhas Tarefas */
+          <MinhasTarefasView 
+            tarefasIniciais={tarefas}
+            listaProjetos={[projeto]} // Passamos só ele, mas o filtro será escondido
+            usuarios={usuarios}
+            colunas={colunasDoKanban} // Passamos as colunas para o Kanban desenhar
+            
+            // CONFIGURAÇÕES ESPECÍFICAS PARA PÁGINA DE PROJETO:
+            agrupamento="COLUNA" // Kanban agrupa por Etapas, não Projetos
+            esconderFiltroProjeto={true} // Esconde o dropdown de projeto
+            
+            // Calendário e Filtros já vêm "de brinde"
+            enableCalendarNavigation={true} 
           />
         )}
 
