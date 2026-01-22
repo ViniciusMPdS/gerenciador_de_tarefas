@@ -3,24 +3,41 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toggleConcluida } from '@/app/actions'
+import CalendarView from './CalendarView' 
+import ModalTarefa from './ModalTarefa'
 
 interface Props {
   tarefasIniciais: any[]
   listaProjetos: any[]
   usuarios?: any[] 
-  tituloPagina?: string 
+  tituloPagina?: string
+  enableCalendarNavigation?: boolean
+  initialCalendarDate?: Date
+  calendarViewMode?: 'SEMANA' | 'MES' 
 }
 
-export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usuarios = [], tituloPagina = "Tarefas" }: Props) {
-  const [view, setView] = useState<'LISTA' | 'QUADRO'>('QUADRO')
+export default function MinhasTarefasView({ 
+    tarefasIniciais, 
+    listaProjetos, 
+    usuarios = [], 
+    tituloPagina = "Tarefas",
+    enableCalendarNavigation = true, 
+    initialCalendarDate,
+    calendarViewMode
+}: Props) {
+  
+  const [view, setView] = useState<'LISTA' | 'QUADRO' | 'CALENDARIO'>('QUADRO')
   const [isPending, startTransition] = useTransition()
   
+  // Estado para modal
+  const [selectedTarefa, setSelectedTarefa] = useState<any>(null) 
+
   // Filtros
   const [busca, setBusca] = useState('')
   const [projetoId, setProjetoId] = useState('')
   const [prioridade, setPrioridade] = useState('')
   const [usuarioId, setUsuarioId] = useState('')
-  const [statusFilter, setStatusFilter] = useState('TODOS') // Novo filtro de status
+  const [statusFilter, setStatusFilter] = useState('TODOS')
 
   const formatarData = (dataOriginal: any) => {
     if (!dataOriginal) return null;
@@ -41,14 +58,12 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
     })
   }
 
-  // --- FILTRAGEM ATUALIZADA ---
   const tarefasFiltradas = tarefasIniciais.filter(t => {
     const matchTexto = t.titulo.toLowerCase().includes(busca.toLowerCase());
     const matchProjeto = projetoId ? t.projeto_id === projetoId : true;
     const matchPrioridade = prioridade ? t.prioridade === prioridade : true;
     const matchUsuario = usuarioId ? t.usuario_id === usuarioId : true;
     
-    // Lógica do Status
     let matchStatus = true;
     if (statusFilter === 'PENDENTE') matchStatus = !t.concluida;
     if (statusFilter === 'CONCLUIDA') matchStatus = t.concluida;
@@ -75,7 +90,6 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                 />
             </div>
 
-            {/* Filtro Status (NOVO) */}
             <select 
                 className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
                 value={statusFilter}
@@ -97,7 +111,6 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                 ))}
             </select>
             
-            {/* Filtro de Usuário (Só aparece na Sprint) */}
             {usuarios.length > 0 && (
                 <select 
                     className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
@@ -127,15 +140,21 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
         <div className="flex bg-gray-100 p-1 rounded-lg flex-shrink-0">
             <button 
                 onClick={() => setView('LISTA')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'LISTA' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'LISTA' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
                 ≣ Lista
             </button>
             <button 
                 onClick={() => setView('QUADRO')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'QUADRO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'QUADRO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
                 ☷ Quadro
+            </button>
+            <button 
+                onClick={() => setView('CALENDARIO')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'CALENDARIO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                📅 Calendário
             </button>
         </div>
       </div>
@@ -143,7 +162,7 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
       {/* --- CONTEÚDO --- */}
       <div className="flex-1 overflow-hidden">
         
-        {/* --- MODO LISTA --- */}
+        {/* MODO LISTA */}
         {view === 'LISTA' && (
              <div className="h-full overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-sm custom-scrollbar-thin">
                 {tarefasFiltradas.length === 0 ? (
@@ -192,9 +211,9 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                                         </span>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <Link href={`/projeto/${t.projeto_id}`} className="text-indigo-600 hover:underline text-sm font-medium">
+                                        <button onClick={() => setSelectedTarefa(t)} className="text-indigo-600 hover:underline text-sm font-medium">
                                             Abrir
-                                        </Link>
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -204,7 +223,7 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
              </div>
         )}
 
-        {/* --- MODO QUADRO --- */}
+        {/* MODO QUADRO */}
         {view === 'QUADRO' && (
             <div className="h-full overflow-x-auto overflow-y-hidden flex gap-4 pb-2 custom-scrollbar">
                 {listaProjetos
@@ -223,7 +242,7 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                             
                             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar-thin">
                                 {tarefasDoProjeto.length === 0 ? (
-                                    <div className="text-center text-gray-400 text-xs py-4 italic">Sem tarefas nesta visão</div>
+                                    <div className="text-center text-gray-400 text-xs py-4 italic">Sem tarefas</div>
                                 ) : (
                                     tarefasDoProjeto.map(t => (
                                         <div key={t.id} className={`bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-default group relative ${isPending ? 'opacity-50' : ''} ${t.concluida ? 'opacity-60 bg-gray-50' : ''}`}>
@@ -258,9 +277,9 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                                                         </span>
                                                     )}
                                                     
-                                                    <Link href={`/projeto/${t.projeto_id}`} className="text-indigo-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => setSelectedTarefa(t)} className="text-indigo-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity">
                                                         Abrir →
-                                                    </Link>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -272,7 +291,32 @@ export default function MinhasTarefasView({ tarefasIniciais, listaProjetos, usua
                 })}
             </div>
         )}
+
+        {/* --- MODO CALENDÁRIO --- */}
+        {view === 'CALENDARIO' && (
+            <div className="h-full overflow-hidden">
+                <CalendarView 
+                    tarefas={tarefasFiltradas} 
+                    abrirModal={(t) => setSelectedTarefa(t)}
+                    enableNavigation={enableCalendarNavigation}
+                    initialDate={initialCalendarDate}
+                    fixedViewMode={calendarViewMode} 
+                />
+            </div>
+        )}
+
       </div>
+      
+      {/* MODAL GLOBAL */}
+      {selectedTarefa && (
+          <ModalTarefa 
+            tarefa={selectedTarefa} 
+            isOpen={!!selectedTarefa} 
+            onClose={() => setSelectedTarefa(null)} 
+            usuarios={usuarios} 
+            projetos={listaProjetos} 
+          />
+      )}
     </div>
   )
 }
