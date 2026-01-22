@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useDrop, useDrag } from 'react-dnd'
+import { atualizarDataTarefa } from '@/app/actions' // A ação que criamos
 
 interface Props {
   tarefas: any[]
@@ -41,34 +43,11 @@ export default function CalendarView({
 
   const irParaHoje = () => setDataAtual(new Date())
 
-  // --- CORREÇÃO DO PROBLEMA DE DOMINGO ---
-  const getTarefasDoDia = (dia: Date) => {
-    return tarefas.filter(t => {
-        if (!t.dt_vencimento) return false
-        
-        // 1. Pega a String "Pura" do Banco (UTC)
-        // Se vier como objeto Date, converte para ISO String e corta a hora
-        let dataTarefaISO = ''
-        if (t.dt_vencimento instanceof Date) {
-            dataTarefaISO = t.dt_vencimento.toISOString()
-        } else {
-            dataTarefaISO = String(t.dt_vencimento)
-        }
-        
-        // Pega apenas "2026-01-26" (YYYY-MM-DD)
-        const dataTarefaYMD = dataTarefaISO.split('T')[0]
-
-        // 2. Formata o dia do calendário para YYYY-MM-DD também
-        const ano = dia.getFullYear()
-        const mes = String(dia.getMonth() + 1).padStart(2, '0')
-        const d = String(dia.getDate()).padStart(2, '0')
-        const dataCalendarioYMD = `${ano}-${mes}-${d}`
-        
-        // 3. Compara apenas texto com texto (26 === 26)
-        return dataTarefaYMD === dataCalendarioYMD
-    })
-  }
-
+  // --- NOME DO MÊS ---
+  const nomeMesRaw = dataAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const nomeMes = nomeMesRaw.charAt(0).toUpperCase() + nomeMesRaw.slice(1)
+  
+  // --- HELPERS DE GERAÇÃO DE DIAS ---
   const getDiasDoMes = () => {
     const ano = dataAtual.getFullYear()
     const mes = dataAtual.getMonth()
@@ -95,11 +74,34 @@ export default function CalendarView({
   }
 
   const diasRenderizados = modo === 'MES' ? getDiasDoMes() : getDiasDaSemana()
-  // Nome do mês com primeira letra maiúscula
-  const nomeMesRaw = dataAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-  const nomeMes = nomeMesRaw.charAt(0).toUpperCase() + nomeMesRaw.slice(1)
-  
-  const hoje = new Date()
+
+  // --- HELPER DE FILTRO (IGUAL ANTES) ---
+  const getTarefasDoDia = (dia: Date) => {
+    return tarefas.filter(t => {
+        if (!t.dt_vencimento) return false
+        
+        let dataTarefaISO = ''
+        if (t.dt_vencimento instanceof Date) {
+            dataTarefaISO = t.dt_vencimento.toISOString()
+        } else {
+            dataTarefaISO = String(t.dt_vencimento)
+        }
+        const dataTarefaYMD = dataTarefaISO.split('T')[0]
+
+        const ano = dia.getFullYear()
+        const mes = String(dia.getMonth() + 1).padStart(2, '0')
+        const d = String(dia.getDate()).padStart(2, '0')
+        const dataCalendarioYMD = `${ano}-${mes}-${d}`
+        
+        return dataTarefaYMD === dataCalendarioYMD
+    })
+  }
+
+  // --- HANDLE DROP (O QUE ACONTECE AO SOLTAR) ---
+  const handleDropTarefa = async (tarefaId: string, projetoId: string, novaData: Date) => {
+    // Chama a server action para atualizar
+    await atualizarDataTarefa(tarefaId, novaData, projetoId)
+  }
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -154,26 +156,15 @@ export default function CalendarView({
                 {diasRenderizados.map((dia, index) => {
                     if (!dia) return <div key={index} className="bg-gray-50/30 border-b border-r border-gray-100 min-h-[100px]" />
                     
-                    const isHoje = dia.toDateString() === hoje.toDateString()
-                    const tarefasDoDia = getTarefasDoDia(dia)
-
                     return (
-                        <div key={index} className={`border-b border-r border-gray-100 p-2 min-h-[100px] flex flex-col group transition-colors ${isHoje ? 'bg-indigo-50/20' : 'hover:bg-gray-50'}`}>
-                            <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isHoje ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}>
-                                {dia.getDate()}
-                            </span>
-                            <div className="space-y-1 overflow-y-auto custom-scrollbar-thin max-h-[80px]">
-                                {tarefasDoDia.map(t => (
-                                    <div 
-                                        key={t.id}
-                                        onClick={() => abrirModal(t)}
-                                        className={`text-[10px] px-1.5 py-1 rounded border cursor-pointer truncate ${t.concluida ? 'bg-gray-100 text-gray-400 line-through border-transparent' : 'bg-white text-gray-700 shadow-sm border-gray-200 hover:border-indigo-300'}`}
-                                    >
-                                        {t.titulo}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <CalendarDayCell 
+                           key={index}
+                           dia={dia}
+                           tarefas={getTarefasDoDia(dia)}
+                           onDrop={handleDropTarefa}
+                           onClickTask={abrirModal}
+                           viewMode="MES"
+                        />
                     )
                 })}
             </div>
@@ -185,40 +176,15 @@ export default function CalendarView({
          <div className="flex h-full overflow-x-auto divide-x divide-gray-100">
              {diasRenderizados.map((dia, index) => {
                  if (!dia) return null
-                 const isHoje = dia.toDateString() === hoje.toDateString()
-                 const tarefasDoDia = getTarefasDoDia(dia)
-
                  return (
-                     <div key={index} className={`flex-1 min-w-[140px] flex flex-col h-full ${isHoje ? 'bg-indigo-50/30' : ''}`}>
-                         <div className={`p-3 text-center border-b border-gray-100 ${isHoje ? 'bg-indigo-50/50' : 'bg-gray-50/50'}`}>
-                             <p className="text-xs font-bold text-gray-400 uppercase">{dia.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
-                             <p className={`text-xl font-bold mt-1 ${isHoje ? 'text-indigo-600' : 'text-gray-700'}`}>
-                                {dia.getDate()}
-                             </p>
-                         </div>
-
-                         <div className="p-2 flex-1 overflow-y-auto space-y-2 custom-scrollbar-thin">
-                             {tarefasDoDia.map(t => (
-                                 <div 
-                                     key={t.id}
-                                     onClick={() => abrirModal(t)}
-                                     className={`p-3 rounded-lg border shadow-sm cursor-pointer group transition-all ${
-                                         t.concluida 
-                                         ? 'bg-gray-50 border-gray-100 opacity-60' 
-                                         : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'
-                                     }`}
-                                 >
-                                     <div className={`w-8 h-1 rounded-full mb-2 ${t.prioridade === 'ALTA' ? 'bg-red-400' : (t.prioridade === 'MEDIA' ? 'bg-orange-400' : 'bg-green-400')}`}></div>
-                                     <p className={`text-sm font-medium leading-tight mb-1 ${t.concluida ? 'line-through text-gray-500' : 'text-gray-800'}`}>
-                                         {t.titulo}
-                                     </p>
-                                     <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
-                                         {t.projeto?.nome}
-                                     </p>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
+                     <CalendarDayCell 
+                        key={index}
+                        dia={dia}
+                        tarefas={getTarefasDoDia(dia)}
+                        onDrop={handleDropTarefa}
+                        onClickTask={abrirModal}
+                        viewMode="SEMANA"
+                     />
                  )
              })}
          </div>
@@ -226,4 +192,136 @@ export default function CalendarView({
 
     </div>
   )
+}
+
+// --- SUB-COMPONENTE: CÉLULA DO DIA (DROPPABLE) ---
+function CalendarDayCell({ 
+    dia, 
+    tarefas, 
+    onDrop, 
+    onClickTask, 
+    viewMode 
+}: { 
+    dia: Date, 
+    tarefas: any[], 
+    onDrop: (id: string, projId: string, date: Date) => void,
+    onClickTask: (t: any) => void,
+    viewMode: 'MES' | 'SEMANA'
+}) {
+    
+    // Configura o alvo de DROP
+    const [{ isOver }, dropRef] = useDrop(() => ({
+        accept: 'CALENDAR_TASK', // Aceita apenas itens desse tipo
+        drop: (item: { id: string, projetoId: string }) => {
+            onDrop(item.id, item.projetoId, dia)
+        },
+        collect: (monitor) => ({
+            isOver: monitor.isOver(),
+        }),
+    }), [dia])
+
+    const hoje = new Date()
+    const isHoje = dia.toDateString() === hoje.toDateString()
+
+    // Renderização condicional baseada no modo (MES vs SEMANA)
+    if (viewMode === 'MES') {
+        return (
+            <div 
+                ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>}
+                className={`border-b border-r border-gray-100 p-2 min-h-[100px] flex flex-col group transition-colors ${isOver ? 'bg-indigo-100' : (isHoje ? 'bg-indigo-50/20' : 'hover:bg-gray-50')}`}
+            >
+                <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isHoje ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}>
+                    {dia.getDate()}
+                </span>
+                <div className="space-y-1 overflow-y-auto custom-scrollbar-thin max-h-[80px]">
+                    {tarefas.map(t => (
+                        <DraggableTaskPill key={t.id} tarefa={t} onClick={() => onClickTask(t)} />
+                    ))}
+                </div>
+            </div>
+        )
+    } 
+    
+    // MODO SEMANA
+    else {
+        return (
+            <div 
+                ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>}
+                className={`flex-1 min-w-[140px] flex flex-col h-full ${isOver ? 'bg-indigo-100' : (isHoje ? 'bg-indigo-50/30' : '')}`}
+            >
+                <div className={`p-3 text-center border-b border-gray-100 ${isHoje ? 'bg-indigo-50/50' : 'bg-gray-50/50'}`}>
+                    <p className="text-xs font-bold text-gray-400 uppercase">{dia.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
+                    <p className={`text-xl font-bold mt-1 ${isHoje ? 'text-indigo-600' : 'text-gray-700'}`}>
+                    {dia.getDate()}
+                    </p>
+                </div>
+
+                <div className="p-2 flex-1 overflow-y-auto space-y-2 custom-scrollbar-thin">
+                    {tarefas.map(t => (
+                        <DraggableTaskCard key={t.id} tarefa={t} onClick={() => onClickTask(t)} />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+}
+
+// --- SUB-COMPONENTE: TAREFA ARRASTÁVEL (PÍLULA - MÊS) ---
+function DraggableTaskPill({ tarefa, onClick }: { tarefa: any, onClick: () => void }) {
+    const [{ isDragging }, dragRef] = useDrag(() => ({
+        type: 'CALENDAR_TASK',
+        item: { id: tarefa.id, projetoId: tarefa.projeto_id },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [tarefa.id])
+
+    return (
+        <div 
+            ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
+            onClick={onClick}
+            className={`text-[10px] px-1.5 py-1 rounded border cursor-pointer truncate transition-opacity ${
+                isDragging ? 'opacity-50' : ''
+            } ${
+                tarefa.concluida 
+                ? 'bg-gray-100 text-gray-400 line-through border-transparent' 
+                : 'bg-white text-gray-700 shadow-sm border-gray-200 hover:border-indigo-300'
+            }`}
+        >
+            {tarefa.titulo}
+        </div>
+    )
+}
+
+// --- SUB-COMPONENTE: TAREFA ARRASTÁVEL (CARD - SEMANA) ---
+function DraggableTaskCard({ tarefa, onClick }: { tarefa: any, onClick: () => void }) {
+    const [{ isDragging }, dragRef] = useDrag(() => ({
+        type: 'CALENDAR_TASK',
+        item: { id: tarefa.id, projetoId: tarefa.projeto_id },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [tarefa.id])
+
+    return (
+        <div 
+            ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
+            onClick={onClick}
+            className={`p-3 rounded-lg border shadow-sm cursor-pointer group transition-all ${
+                isDragging ? 'opacity-50' : ''
+            } ${
+                tarefa.concluida 
+                ? 'bg-gray-50 border-gray-100 opacity-60' 
+                : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'
+            }`}
+        >
+            <div className={`w-8 h-1 rounded-full mb-2 ${tarefa.prioridade === 'ALTA' ? 'bg-red-400' : (tarefa.prioridade === 'MEDIA' ? 'bg-orange-400' : 'bg-green-400')}`}></div>
+            <p className={`text-sm font-medium leading-tight mb-1 ${tarefa.concluida ? 'line-through text-gray-500' : 'text-gray-800'}`}>
+                {tarefa.titulo}
+            </p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
+                {tarefa.projeto?.nome}
+            </p>
+        </div>
+    )
 }
