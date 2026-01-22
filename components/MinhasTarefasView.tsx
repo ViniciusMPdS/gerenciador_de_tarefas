@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
-import { toggleConcluida, moverTarefaDeColuna } from '@/app/actions' 
+import { toggleConcluida, moverTarefaDeColuna, concluirTarefaComComentario } from '@/app/actions' 
 import CalendarView from './CalendarView' 
 import ModalTarefa from './ModalTarefa'
+import ModalConclusao from './ModalConclusao'
 
+// --- IMPORTS DRAG AND DROP ---
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 
@@ -16,10 +17,12 @@ interface Props {
   colunas?: any[] 
   tituloPagina?: string
   
+  // Configs de Calendário
   enableCalendarNavigation?: boolean
   initialCalendarDate?: Date
   calendarViewMode?: 'SEMANA' | 'MES' 
   
+  // Configs de Contexto (Projeto ou Geral)
   agrupamento?: 'PROJETO' | 'COLUNA' 
   esconderFiltroProjeto?: boolean 
 }
@@ -29,7 +32,6 @@ export default function MinhasTarefasView({
     listaProjetos, 
     usuarios = [], 
     colunas = [],
-    tituloPagina = "Tarefas",
     
     enableCalendarNavigation = true, 
     initialCalendarDate,
@@ -41,7 +43,12 @@ export default function MinhasTarefasView({
   
   const [view, setView] = useState<'LISTA' | 'QUADRO' | 'CALENDARIO'>('QUADRO')
   const [isPending, startTransition] = useTransition()
+  
+  // Estado para modal de detalhes
   const [selectedTarefa, setSelectedTarefa] = useState<any>(null) 
+  
+  // ESTADO PARA O MODAL DE CONCLUSÃO (Qual tarefa está tentando ser concluída?)
+  const [tarefaParaConcluir, setTarefaParaConcluir] = useState<string | null>(null)
 
   // Filtros
   const [busca, setBusca] = useState('')
@@ -50,6 +57,7 @@ export default function MinhasTarefasView({
   const [usuarioId, setUsuarioId] = useState('')
   const [statusFilter, setStatusFilter] = useState('TODOS')
 
+  // Helpers
   const formatarData = (dataOriginal: any) => {
     if (!dataOriginal) return null;
     let dataString = dataOriginal instanceof Date ? dataOriginal.toISOString() : String(dataOriginal);
@@ -63,9 +71,33 @@ export default function MinhasTarefasView({
     return 'bg-green-100 text-green-700 border-green-200'
   }
 
+  // --- INTERCEPTOR DO CHECKBOX ---
   const handleCheck = (tarefaId: string, concluidaAtual: boolean, projetoId: string) => {
-    startTransition(() => {
-        toggleConcluida(tarefaId, !concluidaAtual, projetoId)
+    if (!concluidaAtual) {
+        // Se a tarefa NÃO está concluída -> ABRE MODAL para pedir comentário
+        setTarefaParaConcluir(tarefaId)
+    } else {
+        // Se já estava concluída e quer reabrir -> Permite direto (Reabrir não exige comentário)
+        startTransition(() => {
+            toggleConcluida(tarefaId, false, projetoId)
+        })
+    }
+  }
+
+  // --- AÇÃO REAL DE CONCLUIR (Chamada pelo ModalConclusao) ---
+  const confirmarConclusao = (comentario: string) => {
+    if (!tarefaParaConcluir) return
+
+    // Busca a tarefa para pegar dados necessários
+    const tarefa = tarefasIniciais.find(t => t.id === tarefaParaConcluir)
+    if (!tarefa) return
+
+    // Define quem está concluindo (Temporário: usa o primeiro usuário ou o dono da tarefa)
+    const quemConcluiuId = usuarios[0]?.id || tarefa.usuario_id 
+
+    startTransition(async () => {
+        await concluirTarefaComComentario(tarefaParaConcluir, comentario, tarefa.projeto_id, quemConcluiuId)
+        setTarefaParaConcluir(null) // Fecha modal
     })
   }
 
@@ -90,6 +122,7 @@ export default function MinhasTarefasView({
         {/* --- BARRA DE CONTROLE --- */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center flex-shrink-0">
           
+          {/* Filtros */}
           <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto flex-1 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
@@ -150,6 +183,7 @@ export default function MinhasTarefasView({
               </select>
           </div>
 
+          {/* Toggle Visualização */}
           <div className="flex bg-gray-100 p-1 rounded-lg flex-shrink-0">
               <button 
                   onClick={() => setView('LISTA')}
@@ -172,8 +206,10 @@ export default function MinhasTarefasView({
           </div>
         </div>
 
+        {/* --- CONTEÚDO --- */}
         <div className="flex-1 overflow-hidden">
           
+          {/* MODO LISTA */}
           {view === 'LISTA' && (
               <div className="h-full overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-sm custom-scrollbar-thin">
                   {tarefasFiltradas.length === 0 ? (
@@ -234,10 +270,12 @@ export default function MinhasTarefasView({
               </div>
           )}
 
+          {/* MODO QUADRO */}
           {view === 'QUADRO' && (
               <div className="h-full overflow-x-auto overflow-y-hidden flex gap-4 pb-2 custom-scrollbar">
                   
                   {agrupamento === 'PROJETO' ? (
+                      // KANBAN POR PROJETO (Para Sprint/Minhas Tarefas)
                       listaProjetos
                         .filter(p => (esconderFiltroProjeto || !projetoId) ? true : p.id === projetoId)
                         .map(projeto => {
@@ -257,16 +295,15 @@ export default function MinhasTarefasView({
                             )
                         })
                   ) : (
+                      // KANBAN POR COLUNA (Para Página do Projeto)
                       <>
-                        {/* Coluna Não Classificado (CORRIGIDA) */}
+                        {/* Coluna Não Classificado */}
                         {tarefasFiltradas.some(t => !t.coluna_id) && (
                             <KanbanColumn 
                                 titulo="Não Classificado"
                                 count={tarefasFiltradas.filter(t => !t.coluna_id).length}
                                 tarefas={tarefasFiltradas.filter(t => !t.coluna_id)}
-                                onDrop={() => { 
-                                    // NADA A FAZER
-                                }} 
+                                onDrop={() => {}} 
                                 onCheck={handleCheck}
                                 onOpen={setSelectedTarefa}
                                 isPending={isPending}
@@ -275,6 +312,7 @@ export default function MinhasTarefasView({
                             />
                         )}
 
+                        {/* Colunas Reais */}
                         {colunas.map(coluna => {
                             const tarefasDaColuna = tarefasFiltradas.filter(t => t.coluna_id === coluna.id);
                             return (
@@ -283,7 +321,7 @@ export default function MinhasTarefasView({
                                     titulo={coluna.nome}
                                     count={tarefasDaColuna.length}
                                     tarefas={tarefasDaColuna}
-                                    onDrop={(itemId: string) => { // Aqui usamos o itemId
+                                    onDrop={(itemId: string) => {
                                         const tarefaMovida = tarefasFiltradas.find(t => t.id === itemId)
                                         if (tarefaMovida) {
                                             startTransition(() => {
@@ -304,6 +342,7 @@ export default function MinhasTarefasView({
               </div>
           )}
 
+          {/* MODO CALENDÁRIO */}
           {view === 'CALENDARIO' && (
               <div className="h-full overflow-hidden">
                   <CalendarView 
@@ -318,6 +357,7 @@ export default function MinhasTarefasView({
 
         </div>
         
+        {/* MODAL GLOBAL DE DETALHES */}
         {selectedTarefa && (
             <ModalTarefa 
               tarefa={selectedTarefa} 
@@ -327,11 +367,23 @@ export default function MinhasTarefasView({
               projetos={listaProjetos} 
             />
         )}
+        
+        {/* MODAL DE CONCLUSÃO OBRIGATÓRIA */}
+        {tarefaParaConcluir && (
+            <ModalConclusao 
+                isOpen={!!tarefaParaConcluir} 
+                onClose={() => setTarefaParaConcluir(null)}
+                onConfirm={confirmarConclusao}
+                isSaving={isPending}
+            />
+        )}
+
       </div>
     </DndProvider>
   )
 }
 
+// --- SUB-COMPONENTE: COLUNA DO KANBAN ---
 function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPending, isWarning, tipo, dropId }: any) {
     const [{ isOver }, dropRef] = useDrop(() => ({
         accept: 'KANBAN_TASK',
@@ -341,7 +393,7 @@ function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPendi
         collect: (monitor) => ({
             isOver: monitor.isOver(),
         }),
-        canDrop: () => tipo === 'COLUNA' 
+        canDrop: () => tipo === 'COLUNA' // Só aceita drop se for modo coluna
     }), [dropId])
 
     return (
@@ -375,6 +427,7 @@ function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPendi
     )
 }
 
+// --- SUB-COMPONENTE: CARD ARRASTÁVEL ---
 function DraggableKanbanCard({ tarefa, onCheck, onOpen, isPending }: any) {
     const [{ isDragging }, dragRef] = useDrag(() => ({
         type: 'KANBAN_TASK',

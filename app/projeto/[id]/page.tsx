@@ -28,7 +28,11 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   // 2. Busca Tarefas
   const tarefas = await prisma.tarefa.findMany({
     where: { projeto_id: id },
-    include: { usuario: true, coluna: true }, // Inclui coluna para o filtro funcionar
+    include: { 
+      usuario: true,
+      coluna: true,
+      comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } 
+    },
     orderBy: { prioridade: 'desc' }
   })
 

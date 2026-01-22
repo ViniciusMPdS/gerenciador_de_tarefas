@@ -79,6 +79,7 @@ model Tarefa {
   titulo        String
   descricao     String?   @db.Text
   prioridade    String    @default("MEDIA")
+  dificuldade   String    @default("MEDIA")
   
   // MUDANÇA AQUI: Sai 'status', entra 'coluna' e 'concluida'
   concluida     Boolean   @default(false) // O Checkbox

@@ -5,7 +5,7 @@ import { criarTarefa } from '@/app/actions'
 
 interface Props {
   projetoId: string
-  colunas: any[] // Colunas disponíveis neste projeto
+  colunas: any[] 
   usuarios: any[]
 }
 
@@ -44,9 +44,9 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
         >
           <input type="hidden" name="projetoId" value={projetoId} />
 
-          {/* Título */}
+          {/* Título (Obrigatório) */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Título</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Título *</label>
             <input 
               name="titulo" 
               required 
@@ -56,39 +56,68 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
             />
           </div>
 
-          {/* SELETOR DE COLUNA (OBRIGATÓRIO) */}
+          {/* Descrição (Obrigatório) */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Etapa / Coluna <span className="text-red-500">*</span></label>
-            <select 
-              name="colunaId" 
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição *</label>
+            <textarea 
+              name="descricao" 
               required 
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Selecione uma etapa...</option>
-              {colunas.map(col => (
-                <option key={col.id} value={col.id}>{col.nome}</option>
-              ))}
-            </select>
-            {colunas.length === 0 && <p className="text-[10px] text-red-500 mt-1">Configure as etapas do projeto primeiro.</p>}
+              rows={3}
+              placeholder="Detalhes da tarefa..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Prazo */}
+            {/* Prioridade (Obrigatório) */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Prazo</label>
-              <input type="date" name="dtVencimento" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Prioridade *</label>
+                <select name="prioridade" required className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm">
+                    <option value="BAIXA">🟢 Baixa</option>
+                    <option value="MEDIA">🟠 Média</option>
+                    <option value="ALTA">🔴 Alta</option>
+                </select>
             </div>
 
-            {/* Responsável */}
+            {/* Dificuldade (Obrigatório - NOVO) */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável</label>
-              <select name="usuarioId" className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm">
-                <option value="">Ninguém</option>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dificuldade *</label>
+                <select name="dificuldade" required className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm">
+                    <option value="FACIL">🌱 Fácil</option>
+                    <option value="MEDIA">⚖️ Média</option>
+                    <option value="DIFICIL">🔥 Difícil</option>
+                </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Coluna (Obrigatório) */}
+            <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Etapa *</label>
+                <select name="colunaId" required className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm">
+                <option value="">Selecione...</option>
+                {colunas.map(col => (
+                    <option key={col.id} value={col.id}>{col.nome}</option>
+                ))}
+                </select>
+            </div>
+
+            {/* Prazo (Obrigatório) */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Prazo *</label>
+              <input type="date" name="dtVencimento" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+
+          {/* Responsável (Obrigatório) */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável *</label>
+            <select name="usuarioId" required className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm">
+                <option value="">Selecione quem fará...</option>
                 {usuarios.map(u => (
                   <option key={u.id} value={u.id}>{u.nome}</option>
                 ))}
-              </select>
-            </div>
+            </select>
           </div>
 
           <div className="flex justify-end pt-2 gap-2">
