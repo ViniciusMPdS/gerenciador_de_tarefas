@@ -9,18 +9,16 @@ export default async function MinhasTarefasPage() {
   }
 
   // 1. Busca TODAS as tarefas do usuário (Pendentes E Concluídas)
-  // Removemos o 'concluida: false' para que o filtro visual funcione.
   const tarefas = await prisma.tarefa.findMany({
     where: {
       usuario_id: usuario.id,
-      // Se você quiser limitar as concluídas antigas para não pesar, 
-      // pode descomentar a linha abaixo (ex: tarefas de 2024 pra frente)
-      // dt_insert: { gte: new Date('2024-01-01') } 
     },
     orderBy: { dt_vencimento: 'asc' },
     include: {
       projeto: true,
-      coluna: true 
+      coluna: true,
+      // ADICIONE ESTA LINHA:
+      comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } }
     }
   })
 
