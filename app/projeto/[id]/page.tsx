@@ -6,6 +6,13 @@ import ModalCriarTarefa from '@/components/ModalCriarTarefa' // <--- IMPORTANTE
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   
+  // NOVO: REGISTRAR ACESSO (O "Touch") ---
+  // Isso atualiza a data sempre que você entra na página
+  await prisma.projeto.update({
+    where: { id },
+    data: { dt_acesso: new Date() }
+  })
+
   // 1. Busca Projeto e Colunas
   const projeto = await prisma.projeto.findUnique({
     where: { id },
