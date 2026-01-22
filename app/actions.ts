@@ -233,3 +233,10 @@ export async function vincularMultiplasColunas(formData: FormData) {
 
   revalidatePath(`/projeto/${projetoId}`)
 }
+
+export async function getProjetosRecentesSidebar() {
+  return await prisma.projeto.findMany({
+    orderBy: { dt_acesso: 'desc' },
+    take: 10
+  })
+}

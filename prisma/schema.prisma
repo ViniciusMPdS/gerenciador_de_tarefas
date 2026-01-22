@@ -61,6 +61,7 @@ model Projeto {
   colunas      ProjetoColuna[] 
   dt_insert    DateTime  @default(now())
   dt_update    DateTime  @updatedAt
+  dt_acesso   DateTime @default(now())
 }
 
 // TABELA PIVÔ: Liga Projeto e Coluna com uma ORDEM específica
