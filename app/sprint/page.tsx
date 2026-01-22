@@ -8,9 +8,8 @@ type SearchParams = {
 
 export default async function SprintPage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
-  const view = searchParams.view || 'semana';
+  const view = searchParams.view || 'semana'; // 'semana' ou 'mes'
 
-  // --- LÓGICA DE DATAS (Sprint) ---
   const hoje = new Date();
   let dataInicio = new Date();
   let dataFim = new Date();
@@ -18,11 +17,9 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
   hoje.setHours(0, 0, 0, 0);
 
   if (view === 'mes') {
-    // Mês Atual
     dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
   } else {
-    // Semana Atual (Domingo a Sábado)
     const diaSemana = hoje.getDay(); 
     dataInicio = new Date(hoje);
     dataInicio.setDate(hoje.getDate() - diaSemana);
@@ -31,11 +28,9 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     dataFim.setDate(hoje.getDate() + (6 - diaSemana));
   }
   
-  // Datas UTC absolutas para o Prisma
   const dataInicioUTC = new Date(Date.UTC(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()));
   const dataFimUTC = new Date(Date.UTC(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59));
 
-  // 1. Busca Tarefas da Sprint (TODAS do período, removido o filtro 'concluida: false')
   const tarefas = await prisma.tarefa.findMany({
     where: {
       dt_vencimento: {
@@ -46,12 +41,11 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     orderBy: { dt_vencimento: 'asc' },
     include: {
       projeto: true,
-      usuario: true, // Necessário para o filtro de responsável
+      usuario: true, 
       coluna: true
     }
   })
 
-  // 2. Projetos e Usuários
   const projetos = await prisma.projeto.findMany({ orderBy: { nome: 'asc' } })
   const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
 
@@ -68,7 +62,6 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
             </p>
         </div>
 
-        {/* Toggle Semana / Mês */}
         <div className="bg-white border border-gray-200 p-1 rounded-lg flex shadow-sm">
             <Link 
                 href="?view=semana" 
@@ -90,6 +83,13 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
         listaProjetos={projetos}
         usuarios={usuarios} 
         tituloPagina="Sprint Geral"
+        
+        // CONFIG SPRINT:
+        enableCalendarNavigation={false} 
+        initialCalendarDate={dataInicio}
+        
+        // CONFLITO RESOLVIDO: O Calendário obedece à URL da Sprint
+        calendarViewMode={view === 'mes' ? 'MES' : 'SEMANA'} 
       />
     </div>
   )
