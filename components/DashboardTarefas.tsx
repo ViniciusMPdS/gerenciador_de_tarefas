@@ -89,21 +89,21 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+    <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col h-[500px]">
         {/* HEADER */}
-        <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-gray-50/50 min-h-[105px] justify-center">
+        <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-surface/50/50 min-h-[105px] justify-center">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
                         {usuarioNome.substring(0,2).toUpperCase()}
                     </div>
-                    <h2 className="font-bold text-gray-800">Minhas Tarefas</h2>
+                    <h2 className="font-bold text-foreground">Minhas Tarefas</h2>
                 </div>
                 <Link href="/minhas-tarefas" className="text-xs font-medium text-gray-400 hover:text-indigo-600">Expandir</Link>
             </div>
 
             {/* ABAS */}
-            <div className="flex gap-4 text-sm font-medium border-b border-gray-200">
+            <div className="flex gap-4 text-sm font-medium border-b border-border">
                 <button 
                     onClick={() => setAbaAtiva('PROXIMAS')}
                     className={`pb-2 transition-all flex items-center gap-2 ${abaAtiva === 'PROXIMAS' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -125,7 +125,7 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
         <div className="flex-1 overflow-y-auto p-2">
             {listaAtual.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                    <div className="mb-3 p-4 bg-gray-50 rounded-full">
+                    <div className="mb-3 p-4 bg-surface/50 rounded-full">
                          {/* Ícone de Calendário Vazio */}
                         <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -140,11 +140,11 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
             ) : (
                 <div className="space-y-1">
                 {listaAtual.map(t => (
-                    <div key={t.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-gray-100">
+                    <div key={t.id} className="flex items-center gap-3 p-3 hover:bg-surface/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-gray-100">
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${abaAtiva === 'ATRASADAS' ? 'border-red-300' : 'border-gray-300 group-hover:border-indigo-400'}`}></div>
                     
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{t.titulo}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{t.titulo}</p>
                         <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider truncate flex items-center gap-1">
                             {t.projeto?.nome || 'Sem projeto'} • 
                             <span className={abaAtiva === 'ATRASADAS' ? "text-red-500 font-bold" : (formatarDataAmigavel(t.dt_vencimento) === 'Hoje' ? "text-green-600 font-bold" : "")}>

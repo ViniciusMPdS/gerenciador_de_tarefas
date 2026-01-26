@@ -48,7 +48,7 @@ export default function MinhasTarefasClient({ tarefasIniciais, listaProjetos }: 
     <div className="flex flex-col h-full">
       
       {/* BARRA DE FILTROS */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-surface p-4 rounded-xl border border-border shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center">
         
         {/* Busca por Texto */}
         <div className="relative flex-1 w-full">
@@ -64,7 +64,7 @@ export default function MinhasTarefasClient({ tarefasIniciais, listaProjetos }: 
 
         {/* Filtro de Projeto */}
         <select 
-            className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-surface"
             value={projetoId}
             onChange={(e) => setProjetoId(e.target.value)}
         >
@@ -76,7 +76,7 @@ export default function MinhasTarefasClient({ tarefasIniciais, listaProjetos }: 
 
         {/* Filtro de Prioridade */}
         <select 
-            className="w-full md:w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            className="w-full md:w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-surface"
             value={prioridade}
             onChange={(e) => setPrioridade(e.target.value)}
         >
@@ -107,14 +107,14 @@ export default function MinhasTarefasClient({ tarefasIniciais, listaProjetos }: 
          ) : (
              <div className="space-y-2">
                  {tarefasFiltradas.map(t => (
-                     <div key={t.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
+                     <div key={t.id} className="bg-surface p-4 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
                          
                          {/* Checkbox Visual */}
                          <div className="w-5 h-5 rounded-full border-2 border-gray-300 group-hover:border-indigo-500 cursor-pointer flex-shrink-0"></div>
 
                          {/* Infos */}
                          <div className="flex-1 min-w-0">
-                             <h3 className="font-semibold text-gray-800 truncate">{t.titulo}</h3>
+                             <h3 className="font-semibold text-foreground truncate">{t.titulo}</h3>
                              <div className="flex items-center gap-2 text-xs mt-1">
                                  <span className="font-bold text-gray-500 uppercase tracking-wider">{t.projeto?.nome || 'Sem Projeto'}</span>
                                  <span className="text-gray-300">•</span>

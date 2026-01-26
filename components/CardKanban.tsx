@@ -42,11 +42,11 @@ export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
       <div
         ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
         onClick={() => setIsModalOpen(true)}
-        className={`bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all group relative ${isDragging ? 'opacity-50' : 'opacity-100'} ${tarefa.concluida ? 'bg-gray-50' : ''}`}
+        className={`bg-surface p-3 rounded-lg shadow-sm border border-border cursor-pointer hover:shadow-md transition-all group relative ${isDragging ? 'opacity-50' : 'opacity-100'} ${tarefa.concluida ? 'bg-surface/50' : ''}`}
       >
         <div className="flex justify-between items-start mb-1">
           {/* Badge de Prioridade */}
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${corPrioridade[tarefa.prioridade as keyof typeof corPrioridade] || 'bg-gray-100 text-gray-600'}`}>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${corPrioridade[tarefa.prioridade as keyof typeof corPrioridade] || 'bg-surface/50 text-gray-600'}`}>
             {tarefa.prioridade}
           </span>
           
@@ -68,7 +68,7 @@ export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
            </div>
         )}
 
-        <h4 className={`text-sm font-medium text-gray-800 mb-3 line-clamp-2 ${tarefa.concluida ? 'line-through text-gray-400' : ''}`}>
+        <h4 className={`text-sm font-medium text-foreground mb-3 line-clamp-2 ${tarefa.concluida ? 'line-through text-gray-400' : ''}`}>
           {tarefa.titulo}
         </h4>
 
@@ -89,7 +89,7 @@ export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
                {tarefa.usuario.nome.substring(0, 2).toUpperCase()}
              </div>
           ) : (
-             <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 border border-gray-200">
+             <div className="w-6 h-6 rounded-full bg-surface/50 flex items-center justify-center text-[10px] text-gray-400 border border-border">
                ?
              </div>
           )}

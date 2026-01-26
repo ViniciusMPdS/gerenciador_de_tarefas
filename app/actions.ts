@@ -2,28 +2,51 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { auth, signIn } from '@/auth'
+import { AuthError } from 'next-auth'
+import bcrypt from 'bcryptjs'
+
+// --- AUTENTICAÇÃO ---
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    await signIn('credentials', {
+        ...Object.fromEntries(formData),
+        redirectTo: '/', 
+    })
+  } catch (error) {
+    if ((error as Error).message.includes('NEXT_REDIRECT')) {
+        throw error;
+    }
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin': return 'Credenciais inválidas. Verifique e-mail e senha.'
+        case 'CallbackRouteError': return 'Erro ao tentar login. Usuário inativo?'
+        default: return 'Algo deu errado. Tente novamente.'
+      }
+    }
+    throw error
+  }
+}
 
 // --- TAREFAS ---
-
 export async function criarTarefa(formData: FormData) {
   const titulo = formData.get('titulo') as string
-  const descricao = formData.get('descricao') as string // Agora obrigatório
-  const prioridade = formData.get('prioridade') as string
-  const dificuldade = formData.get('dificuldade') as string // Novo
+  const descricao = formData.get('descricao') as string 
+  // MUDANÇA: Lendo como Number
+  const prioridadeId = Number(formData.get('prioridadeId'))
+  const dificuldadeId = Number(formData.get('dificuldadeId'))
+  
   const projetoId = formData.get('projetoId') as string
   const usuarioId = formData.get('usuarioId') as string
   const dtVencimentoStr = formData.get('dtVencimento') as string
   let colunaId = formData.get('colunaId') as string
 
-  // VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
-  if (!titulo || !descricao || !prioridade || !dificuldade || !projetoId || !usuarioId || !dtVencimentoStr) {
-    // Em um cenário real, você retornaria um erro para o front exibir.
-    // Por enquanto, apenas abortamos se faltar algo.
-    return 
-  }
+  // Validação ajustada para números
+  if (!titulo || !descricao || !prioridadeId || !dificuldadeId || !projetoId || !usuarioId || !dtVencimentoStr) return 
 
-  // Se não veio coluna, buscamos a primeira do projeto
   if (!colunaId) {
      const primeiraColuna = await prisma.projetoColuna.findFirst({
         where: { projeto_id: projetoId },
@@ -36,8 +59,9 @@ export async function criarTarefa(formData: FormData) {
     data: {
       titulo,
       descricao,
-      prioridade,
-      dificuldade, // Salvando a dificuldade
+      // Passando os IDs
+      prioridade_id: prioridadeId,
+      dificuldade_id: dificuldadeId,
       concluida: false,
       coluna_id: colunaId || undefined,
       projeto_id: projetoId,
@@ -51,95 +75,70 @@ export async function criarTarefa(formData: FormData) {
   revalidatePath(`/sprint`)
 }
 
-// NOVA ACTION: Concluir com Comentário Obrigatório
 export async function concluirTarefaComComentario(tarefaId: string, comentario: string, projetoId: string, usuarioId: string) {
-  'use server'
-
-  // 1. Atualiza a tarefa para concluída
   await prisma.tarefa.update({
     where: { id: tarefaId },
-    data: { 
-      concluida: true,
-      dt_conclusao: new Date()
-    }
+    data: { concluida: true, dt_conclusao: new Date() }
   })
 
-  // 2. Adiciona o comentário de encerramento
   if (comentario) {
     await prisma.comentario.create({
-      data: {
-        texto: `🏁 ENCERRAMENTO: ${comentario}`,
-        tarefa_id: tarefaId,
-        usuario_id: usuarioId // Precisamos saber quem encerrou
-      }
+      data: { texto: `🏁 ENCERRAMENTO: ${comentario}`, tarefa_id: tarefaId, usuario_id: usuarioId }
     })
   }
-
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
-// Mantenha as outras funções (editarTarefa, moverTarefaDeColuna, etc) como estão...
-// Apenas certifique-se que o editarTarefa também receba 'dificuldade' se você quiser editar depois.
-
 export async function editarTarefa(formData: FormData) {
   const id = formData.get('id') as string
   const projeto_id = formData.get('projetoId') as string
-  
-  // Pegando todos os campos para edição também
   const titulo = formData.get('titulo') as string
   const descricao = formData.get('descricao') as string
-  const prioridade = formData.get('prioridade') as string
-  const dificuldade = formData.get('dificuldade') as string // Novo
+  
+  // MUDANÇA: Lendo como Number
+  const prioridadeId = Number(formData.get('prioridadeId'))
+  const dificuldadeId = Number(formData.get('dificuldadeId'))
+  
   const usuario_id = formData.get('usuarioId') as string
   const dt_vencimento = formData.get('dtVencimento') as string ? new Date(formData.get('dtVencimento') as string) : null
 
   await prisma.tarefa.update({
     where: { id },
-    data: {
-      titulo,
-      descricao,
-      prioridade,
-      dificuldade,
-      dt_vencimento,
-      usuario_id
+    data: { 
+        titulo, 
+        descricao, 
+        prioridade_id: prioridadeId, 
+        dificuldade_id: dificuldadeId, 
+        dt_vencimento, 
+        usuario_id 
     }
   })
-
   revalidatePath(`/projeto/${projeto_id}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
+// ... (Restante das funções: adicionarComentario, moverTarefaDeColuna, etc. continuam iguais)
 export async function adicionarComentario(formData: FormData) {
   const texto = formData.get('texto') as string
   const tarefaId = formData.get('tarefaId') as string
   const projetoId = formData.get('projetoId') as string
   const usuarioId = formData.get('usuarioId') as string 
 
-  if (!texto || !tarefaId || !usuarioId) return null // Retorna null se falhar
+  if (!texto || !tarefaId || !usuarioId) return null
 
   const novoComentario = await prisma.comentario.create({
-    data: {
-      texto,
-      tarefa_id: tarefaId,
-      usuario_id: usuarioId,
-    },
-    // IMPORTANTE: Incluir o usuário para mostrar o nome na hora
-    include: {
-        usuario: true
-    }
+    data: { texto, tarefa_id: tarefaId, usuario_id: usuarioId },
+    include: { usuario: true }
   })
-
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
-
-  return novoComentario // <--- Retornamos o objeto criado
+  return novoComentario
 }
 
-// ... Resto do arquivo (moverTarefa, excluir, atualizarData, etc) igual
 export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string, projetoId: string) {
   await prisma.tarefa.update({
     where: { id: tarefaId },
@@ -149,14 +148,9 @@ export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string
 }
 
 export async function toggleConcluida(tarefaId: string, isConcluida: boolean, projetoId: string) {
-  // Essa função agora serve apenas para REABRIR (false). 
-  // Para concluir (true), usaremos a nova com comentário.
   await prisma.tarefa.update({
     where: { id: tarefaId },
-    data: { 
-        concluida: isConcluida,
-        dt_conclusao: isConcluida ? new Date() : null 
-    }
+    data: { concluida: isConcluida, dt_conclusao: isConcluida ? new Date() : null }
   })
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
@@ -177,26 +171,94 @@ export async function atualizarDataTarefa(tarefaId: string, novaData: Date, proj
   revalidatePath(`/sprint`)
 }
 
-// ... Actions de Projeto/Workspace/Colunas iguais
+export async function getColunasDoWorkspace() {
+  const session = await auth()
+  if (!session?.user?.email) return []
+
+  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (!usuario?.workspace_id) return []
+
+  return await prisma.coluna.findMany({
+    where: { workspace_id: usuario.workspace_id },
+    orderBy: { nome: 'asc' }
+  })
+}
+
+export async function criarProjeto(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.email) return
+  
+  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (!usuario) return
+
+  const nome = formData.get('nome') as string
+  const descricao = formData.get('descricao') as string
+  
+  const colunasSelecionadasIds = formData.getAll('colunas') as string[]
+
+  const novoProjeto = await prisma.projeto.create({
+    data: {
+      nome,
+      descricao,
+      workspace_id: usuario.workspace_id!, 
+      usuario_id: usuario.id,
+      dt_acesso: new Date()
+    }
+  })
+
+  if (colunasSelecionadasIds.length > 0) {
+      let ordem = 1
+      for (const colunaId of colunasSelecionadasIds) {
+          await prisma.projetoColuna.create({
+              data: {
+                  projeto_id: novoProjeto.id,
+                  coluna_id: colunaId,
+                  ordem: ordem++ 
+              }
+          })
+      }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/projetos')
+}
+
+export async function criarColuna(formData: FormData) {
+  const nome = formData.get('nome') as string
+  const workspaceId = formData.get('workspaceId') as string
+  if (!nome || !workspaceId) return
+  await prisma.coluna.create({ data: { nome, workspace_id: workspaceId } })
+  revalidatePath('/configuracoes/colunas')
+}
+
+export async function excluirColuna(formData: FormData) {
+  const id = formData.get('id') as string
+  try {
+    await prisma.coluna.delete({ where: { id } })
+    revalidatePath('/configuracoes/colunas')
+  } catch (error) { console.log("Erro ao excluir") }
+}
+
 export async function vincularMultiplasColunas(formData: FormData) {
-    // ... código existente
     const projetoId = formData.get('projetoId') as string
     const colunasIds = formData.getAll('colunasIds') as string[]
     if (!projetoId || colunasIds.length === 0) return
+    
     const ultimaColuna = await prisma.projetoColuna.findFirst({
         where: { projeto_id: projetoId },
         orderBy: { ordem: 'desc' }
     })
     let proximaOrdem = (ultimaColuna?.ordem || 0) + 1
+    
     for (const colId of colunasIds) {
         const existe = await prisma.projetoColuna.findUnique({
-        where: { projeto_id_coluna_id: { projeto_id: projetoId, coluna_id: colId } }
+             where: { projeto_id_coluna_id: { projeto_id: projetoId, coluna_id: colId } }
         })
         if (!existe) {
-        await prisma.projetoColuna.create({
-            data: { projeto_id: projetoId, coluna_id: colId, ordem: proximaOrdem }
-        })
-        proximaOrdem++
+            await prisma.projetoColuna.create({
+                data: { projeto_id: projetoId, coluna_id: colId, ordem: proximaOrdem }
+            })
+            proximaOrdem++
         }
     }
     revalidatePath(`/projeto/${projetoId}`)
@@ -216,4 +278,80 @@ export async function getProjetosRecentesSidebar() {
       orderBy: { dt_acesso: 'desc' },
       take: 10
     })
+}
+
+export async function getUsuariosDoWorkspace() {
+  const session = await auth()
+  if (!session?.user?.email) return []
+
+  // Verifica quem está pedindo
+  const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  
+  // Segurança: Se não for OWNER, não retorna nada (ou poderia lançar erro)
+  if (solicitante?.role !== 'OWNER') return []
+
+  return await prisma.usuario.findMany({
+    where: { workspace_id: solicitante.workspace_id },
+    orderBy: { nome: 'asc' }
+  })
+}
+
+export async function criarNovoUsuario(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.email) return { erro: 'Sem permissão' }
+
+  const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  
+  // TRAVA DE SEGURANÇA NO SERVIDOR
+  if (solicitante?.role !== 'OWNER') {
+    return { erro: 'Apenas administradores podem criar usuários.' }
+  }
+
+  const nome = formData.get('nome') as string
+  const email = formData.get('email') as string
+  const senha = formData.get('senha') as string
+  const cargo = formData.get('cargo') as string
+
+  // Verifica se já existe email
+  const existe = await prisma.usuario.findUnique({ where: { email } })
+  if (existe) return { erro: 'E-mail já cadastrado.' }
+
+  const senhaHash = await bcrypt.hash(senha, 10)
+
+  await prisma.usuario.create({
+    data: {
+      nome,
+      email,
+      senha: senhaHash,
+      cargo: cargo || 'Colaborador',
+      role: 'MEMBER', // Todo usuário criado manualmente entra como MEMBER
+      ativo: true,
+      workspace_id: solicitante.workspace_id!
+    }
+  })
+
+  revalidatePath('/configuracoes/usuarios')
+  return { sucesso: true }
+}
+
+export async function toggleStatusUsuario(usuarioAlvoId: string) {
+  const session = await auth()
+  if (!session?.user?.email) return
+
+  const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (solicitante?.role !== 'OWNER') return
+
+  // Busca o usuário alvo para inverter o status
+  const alvo = await prisma.usuario.findUnique({ where: { id: usuarioAlvoId } })
+  if (!alvo) return
+
+  // Impede que o OWNER inative a si mesmo por acidente
+  if (alvo.id === solicitante.id) return 
+
+  await prisma.usuario.update({
+    where: { id: usuarioAlvoId },
+    data: { ativo: !alvo.ativo }
+  })
+
+  revalidatePath('/configuracoes/usuarios')
 }

@@ -19,9 +19,9 @@ export default function BotaoNovaTarefa({ projetoId }: { projetoId: string }) {
       {/* O MODAL (Janela que abre) */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
+          <div className="bg-surface rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
             
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Nova Tarefa</h2>
+            <h2 className="text-xl font-bold text-foreground mb-4">Nova Tarefa</h2>
             
             <form action={async (formData) => {
                 await criarTarefa(formData) // Chama o servidor
@@ -57,7 +57,7 @@ export default function BotaoNovaTarefa({ projetoId }: { projetoId: string }) {
                 <button 
                   type="button" 
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 text-gray-600 hover:bg-surface/50 rounded-lg text-sm font-medium transition-colors"
                 >
                   Cancelar
                 </button>

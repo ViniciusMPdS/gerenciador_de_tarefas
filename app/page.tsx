@@ -55,7 +55,7 @@ export default async function Home() {
     <div className="p-8 max-w-7xl mx-auto min-h-screen">
       
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-foreground">
           {saudacao}, {usuario ? usuario.nome.split(' ')[0] : 'Visitante'}!
         </h1>
         <p className="text-gray-500 text-sm mt-1">Aqui está o resumo do seu dia.</p>
@@ -68,15 +68,15 @@ export default async function Home() {
         <DashboardTarefas tarefas={minhasTarefas} usuarioNome={usuario?.nome || 'Eu'} />
 
         {/* DIREITA: WIDGET DE PROJETOS RECENTES */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+        <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col h-[500px]">
             {/* Header */}
-            <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-gray-50/50 min-h-[105px] justify-center">
+            <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-surface/50/50 min-h-[105px] justify-center">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
                            📂
                         </div>
-                        <h2 className="font-bold text-gray-800">Projetos Recentes</h2>
+                        <h2 className="font-bold text-foreground">Projetos Recentes</h2>
                     </div>
                     <Link href="/projetos" className="text-xs font-medium text-gray-400 hover:text-indigo-600">Ver biblioteca</Link>
                 </div>
@@ -97,13 +97,13 @@ export default async function Home() {
                         <Link 
                             key={projeto.id} 
                             href={`/projeto/${projeto.id}`}
-                            className="flex flex-col justify-center p-4 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-28 group"
+                            className="flex flex-col justify-center p-4 rounded-xl bg-surface border border-border shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-28 group"
                         >
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                     {projeto.nome.substring(0, 1).toUpperCase()}
                                 </div>
-                                <h3 className="font-bold text-gray-800 text-sm truncate w-full" title={projeto.nome}>{projeto.nome}</h3>
+                                <h3 className="font-bold text-foreground text-sm truncate w-full" title={projeto.nome}>{projeto.nome}</h3>
                             </div>
                             <div className="flex justify-between items-end mt-1">
                                 <p className="text-[10px] text-gray-400">
@@ -111,7 +111,7 @@ export default async function Home() {
                                         ? 'Acessado hoje' 
                                         : new Date(projeto.dt_acesso).toLocaleDateString()}
                                 </p>
-                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">
+                                <span className="text-[10px] bg-surface/50 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">
                                     {projeto._count.tarefas} tarefas
                                 </span>
                             </div>

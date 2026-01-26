@@ -54,7 +54,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     <div className="p-8 max-w-[1600px] mx-auto h-screen flex flex-col">
       <header className="mb-6 flex-shrink-0 flex justify-between items-end">
         <div>
-            <h1 className="text-3xl font-bold text-gray-900">Sprint Geral 🚀</h1>
+            <h1 className="text-3xl font-bold text-foreground">Sprint Geral 🚀</h1>
             <p className="text-gray-500 mt-1">
                 Visão de tarefas para: <strong className="text-indigo-600 capitalize">{view}</strong> 
                 <span className="text-xs ml-2 text-gray-400">
@@ -63,16 +63,16 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
             </p>
         </div>
 
-        <div className="bg-white border border-gray-200 p-1 rounded-lg flex shadow-sm">
+        <div className="bg-surface border border-border p-1 rounded-lg flex shadow-sm">
             <Link 
                 href="?view=semana" 
-                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${view === 'semana' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${view === 'semana' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-surface/50'}`}
             >
                 Semana
             </Link>
             <Link 
                 href="?view=mes" 
-                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${view === 'mes' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${view === 'mes' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-surface/50'}`}
             >
                 Mês
             </Link>

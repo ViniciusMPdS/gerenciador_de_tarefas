@@ -24,19 +24,12 @@ export default function SidebarRecentes({ inicialProjetos }: { inicialProjetos: 
          <Link 
            key={proj.id}
            href={`/projeto/${proj.id}`} 
-           className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${pathname === `/projeto/${proj.id}` ? 'bg-white/10 text-white font-medium' : 'hover:bg-white/5 text-gray-400 hover:text-white'}`}
+           className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${pathname === `/projeto/${proj.id}` ? 'bg-surface/10 text-white font-medium' : 'hover:bg-surface/5 text-gray-400 hover:text-white'}`}
          >
            <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></span>
            <span className="truncate">{proj.nome}</span>
          </Link>
       ))}
-
-      <Link 
-           href="/projetos" 
-           className="flex items-center gap-2 px-2 py-2 mt-2 rounded-md hover:bg-white/5 text-gray-500 hover:text-white text-xs transition-colors border-t border-white/5"
-         >
-           <span className="truncate">📂 Ver todos os projetos...</span>
-      </Link>
     </div>
   )
 }

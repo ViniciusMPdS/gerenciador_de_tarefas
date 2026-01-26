@@ -30,7 +30,7 @@ export default async function MinhasTarefasPage() {
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-screen flex flex-col">
       <header className="mb-6 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-gray-900">Minhas Tarefas</h1>
+        <h1 className="text-3xl font-bold text-foreground">Minhas Tarefas</h1>
         <p className="text-gray-500 mt-1">Gerencie suas pendências em Lista ou Quadro.</p>
       </header>
 

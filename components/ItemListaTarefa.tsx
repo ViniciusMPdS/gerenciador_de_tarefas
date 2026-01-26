@@ -20,7 +20,7 @@ export default function ItemListaTarefa({ tarefa, usuarios }: ItemProps) {
     <>
       <div 
         onClick={() => setShowModal(true)} // <--- A MÁGICA: Clicou na linha, abre o modal
-        className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
+        className="bg-surface p-4 rounded-xl border border-border shadow-sm hover:border-indigo-300 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
       >
         
         <div className="flex items-center gap-4">
@@ -31,7 +31,7 @@ export default function ItemListaTarefa({ tarefa, usuarios }: ItemProps) {
           }`} title={tarefa.status}></div>
           
           <div>
-            <h4 className={`font-medium text-gray-900 ${isDone ? 'line-through text-gray-400' : ''}`}>
+            <h4 className={`font-medium text-foreground ${isDone ? 'line-through text-gray-400' : ''}`}>
               {tarefa.titulo}
             </h4>
             <div className="flex items-center gap-3 mt-1">
@@ -54,7 +54,7 @@ export default function ItemListaTarefa({ tarefa, usuarios }: ItemProps) {
                 {tarefa.usuario.nome.slice(0, 2).toUpperCase()}
               </div>
             ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-400 border border-gray-200 border-dashed">
+              <div className="w-8 h-8 rounded-full bg-surface/50 flex items-center justify-center text-xs text-gray-400 border border-border border-dashed">
                 ?
               </div>
             )}

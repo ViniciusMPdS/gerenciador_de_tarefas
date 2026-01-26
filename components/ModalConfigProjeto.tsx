@@ -23,7 +23,7 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-surface/50 transition-colors"
         title="Configurar Etapas do Projeto"
       >
         ⚙️ Configurar Etapas
@@ -33,12 +33,12 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* HEADER */}
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-surface/50">
           <div>
-            <h3 className="font-bold text-gray-800 text-lg">Configurar Fluxo</h3>
+            <h3 className="font-bold text-foreground text-lg">Configurar Fluxo</h3>
             <p className="text-xs text-gray-500">Adicione ou remova etapas deste projeto.</p>
           </div>
           <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 p-2">✕</button>
@@ -50,17 +50,17 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
           <div>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
               ✅ Etapas Ativas no Projeto
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px]">{colunasDoProjeto.length}</span>
+              <span className="bg-surface/50 text-gray-600 px-2 py-0.5 rounded-full text-[10px]">{colunasDoProjeto.length}</span>
             </h4>
             
             {colunasDoProjeto.length === 0 ? (
-               <div className="text-sm text-gray-400 italic bg-gray-50 p-4 rounded-lg text-center border border-dashed border-gray-200">
+               <div className="text-sm text-gray-400 italic bg-surface/50 p-4 rounded-lg text-center border border-dashed border-border">
                  Projeto sem etapas. Selecione abaixo para começar.
                </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {colunasDoProjeto.map((pc: any) => (
-                  <div key={pc.coluna_id} className="flex items-center justify-between p-2 pl-3 bg-white border border-indigo-100 rounded-lg shadow-sm group hover:border-red-200 transition-colors">
+                  <div key={pc.coluna_id} className="flex items-center justify-between p-2 pl-3 bg-surface border border-indigo-100 rounded-lg shadow-sm group hover:border-red-200 transition-colors">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <span className="w-5 h-5 min-w-[20px] rounded bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold">
                         {pc.ordem}
@@ -107,7 +107,7 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
                   {colunasParaAdicionar.map(c => (
                     <label 
                       key={c.id} 
-                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all select-none active:scale-[0.98]"
+                      className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-surface/50 hover:border-gray-300 transition-all select-none active:scale-[0.98]"
                     >
                       <input 
                         type="checkbox" 

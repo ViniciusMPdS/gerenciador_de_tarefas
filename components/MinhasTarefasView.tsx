@@ -114,7 +114,7 @@ export default function MinhasTarefasView({
       <div className="flex flex-col h-full">
         
         {/* --- BARRA DE CONTROLE --- */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center flex-shrink-0">
+        <div className="bg-surface p-4 rounded-xl border border-border shadow-sm mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center flex-shrink-0">
           
           <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto flex-1 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
@@ -123,7 +123,7 @@ export default function MinhasTarefasView({
                       value={busca} onChange={(e) => setBusca(e.target.value)} />
               </div>
 
-              <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
+              <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-surface text-sm"
                   value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="TODOS">Todas (Status)</option>
                   <option value="PENDENTE">🕒 Pendentes</option>
@@ -131,7 +131,7 @@ export default function MinhasTarefasView({
               </select>
 
               {!esconderFiltroProjeto && (
-                  <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-surface text-sm"
                       value={projetoId} onChange={(e) => setProjetoId(e.target.value)}>
                       <option value="">Todos os Projetos</option>
                       {listaProjetos.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
@@ -139,14 +139,14 @@ export default function MinhasTarefasView({
               )}
               
               {usuarios.length > 0 && (
-                  <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-surface text-sm"
                       value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
                       <option value="">Todos Responsáveis</option>
                       {usuarios.map(u => (<option key={u.id} value={u.id}>{u.nome}</option>))}
                   </select>
               )}
 
-              <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
+              <select className="px-3 py-2 border border-gray-300 rounded-lg outline-none bg-surface text-sm"
                   value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
                   <option value="">Todas Prioridades</option>
                   <option value="ALTA">Alta</option>
@@ -155,10 +155,10 @@ export default function MinhasTarefasView({
               </select>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-lg flex-shrink-0">
-              <button onClick={() => setView('LISTA')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'LISTA' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>≣ Lista</button>
-              <button onClick={() => setView('QUADRO')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'QUADRO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>☷ Quadro</button>
-              <button onClick={() => setView('CALENDARIO')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'CALENDARIO' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>📅 Calendário</button>
+          <div className="flex bg-surface/50 p-1 rounded-lg flex-shrink-0">
+              <button onClick={() => setView('LISTA')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'LISTA' ? 'bg-surface text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>≣ Lista</button>
+              <button onClick={() => setView('QUADRO')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'QUADRO' ? 'bg-surface text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>☷ Quadro</button>
+              <button onClick={() => setView('CALENDARIO')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'CALENDARIO' ? 'bg-surface text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>📅 Calendário</button>
           </div>
         </div>
 
@@ -167,10 +167,10 @@ export default function MinhasTarefasView({
           
           {/* MODO LISTA */}
           {view === 'LISTA' && (
-              <div className="h-full overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-sm custom-scrollbar-thin">
+              <div className="h-full overflow-y-auto bg-surface rounded-xl border border-border shadow-sm custom-scrollbar-thin">
                   {tarefasFiltradas.length === 0 ? <div className="p-10 text-center text-gray-400">Nenhuma tarefa encontrada.</div> : (
                       <table className="w-full text-left border-collapse">
-                          <thead className="bg-gray-50 sticky top-0 z-10 text-xs uppercase text-gray-500 font-semibold">
+                          <thead className="bg-surface/50 sticky top-0 z-10 text-xs uppercase text-gray-500 font-semibold">
                               <tr>
                                   <th className="p-4 border-b w-10"></th>
                                   <th className="p-4 border-b">Tarefa</th>
@@ -183,12 +183,12 @@ export default function MinhasTarefasView({
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                               {tarefasFiltradas.map(t => (
-                                  <tr key={t.id} className={`hover:bg-gray-50 transition-colors group ${t.concluida ? 'bg-gray-50/50' : ''}`}>
+                                  <tr key={t.id} className={`hover:bg-surface/50 transition-colors group ${t.concluida ? 'bg-surface/50/50' : ''}`}>
                                       <td className="p-4">
                                           <input type="checkbox" checked={t.concluida} onChange={() => handleCheck(t.id, t.concluida, t.projeto_id)} className="w-4 h-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500 cursor-pointer" />
                                       </td>
-                                      <td className="p-4 font-medium text-gray-800"><span className={t.concluida ? "line-through text-gray-400" : ""}>{t.titulo}</span></td>
-                                      <td className="p-4 text-sm text-gray-500"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">{t.projeto?.nome}</span></td>
+                                      <td className="p-4 font-medium text-foreground"><span className={t.concluida ? "line-through text-gray-400" : ""}>{t.titulo}</span></td>
+                                      <td className="p-4 text-sm text-gray-500"><span className="bg-surface/50 px-2 py-1 rounded text-xs font-bold">{t.projeto?.nome}</span></td>
                                       <td className="p-4 text-sm text-gray-500 text-xs"><span className={`px-2 py-1 rounded border ${t.concluida ? 'bg-green-50 text-green-600 border-green-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>{t.concluida ? 'Concluída' : (t.coluna?.nome || 'Backlog')}</span></td>
                                       <td className="p-4 text-sm text-gray-500">{formatarData(t.dt_vencimento) || '-'}</td>
                                       <td className="p-4 text-center"><span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${getPriorityColor(t.prioridade)}`}>{t.prioridade}</span></td>
@@ -277,10 +277,10 @@ function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPendi
     }), [dropId])
 
     return (
-        <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`w-80 flex-shrink-0 flex flex-col bg-gray-100 rounded-xl border border-gray-200 max-h-full transition-colors ${isOver ? 'bg-indigo-50 border-indigo-300' : ''} ${isWarning ? 'bg-red-50 border-red-100' : ''}`}>
-            <div className={`p-3 font-bold text-gray-700 text-sm border-b border-gray-200 flex justify-between rounded-t-xl ${isWarning ? 'text-red-500 bg-red-50' : 'bg-white'}`}>
+        <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`w-80 flex-shrink-0 flex flex-col bg-surface/50 rounded-xl border border-border max-h-full transition-colors ${isOver ? 'bg-indigo-50 border-indigo-300' : ''} ${isWarning ? 'bg-red-50 border-red-100' : ''}`}>
+            <div className={`p-3 font-bold text-gray-700 text-sm border-b border-border flex justify-between rounded-t-xl ${isWarning ? 'text-red-500 bg-red-50' : 'bg-surface'}`}>
                 <span className="truncate" title={titulo}>{titulo}</span>
-                <span className="bg-gray-100 text-gray-500 px-2 rounded-full text-xs flex items-center border border-gray-200">{count}</span>
+                <span className="bg-surface/50 text-gray-500 px-2 rounded-full text-xs flex items-center border border-border">{count}</span>
             </div>
             <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar-thin">
                 {tarefas.length === 0 ? <div className="text-center text-gray-400 text-xs py-4 italic">Vazio</div> : tarefas.map((t: any) => (
@@ -302,14 +302,14 @@ function DraggableKanbanCard({ tarefa, onCheck, onOpen, isPending }: any) {
 
     return (
         <div ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>} onClick={() => onOpen(tarefa)}
-            className={`bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-default group relative ${isPending ? 'opacity-50' : ''} ${tarefa.concluida ? 'opacity-60 bg-gray-50' : ''} ${isDragging ? 'opacity-30' : ''}`}>
+            className={`bg-surface p-3 rounded-lg border border-border shadow-sm hover:shadow-md transition-all cursor-default group relative ${isPending ? 'opacity-50' : ''} ${tarefa.concluida ? 'opacity-60 bg-surface/50' : ''} ${isDragging ? 'opacity-30' : ''}`}>
             <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${tarefa.prioridade === 'ALTA' ? 'bg-red-500' : (tarefa.prioridade === 'MEDIA' ? 'bg-orange-400' : 'bg-green-400')}`}></div>
             <div className="pl-2">
                 <div className="flex justify-between items-start mb-1">
-                    <span className={`text-[10px] border px-1.5 rounded uppercase font-semibold ${tarefa.concluida ? 'bg-green-50 border-green-100 text-green-600' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>{tarefa.concluida ? 'Concluída' : (tarefa.coluna?.nome || 'A Fazer')}</span>
+                    <span className={`text-[10px] border px-1.5 rounded uppercase font-semibold ${tarefa.concluida ? 'bg-green-50 border-green-100 text-green-600' : 'bg-surface/50 border-gray-100 text-gray-500'}`}>{tarefa.concluida ? 'Concluída' : (tarefa.coluna?.nome || 'A Fazer')}</span>
                     <input type="checkbox" checked={tarefa.concluida} onChange={() => onCheck(tarefa.id, tarefa.concluida, tarefa.projeto_id)} onClick={(e) => e.stopPropagation()} className="w-4 h-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500 cursor-pointer" />
                 </div>
-                <h4 className={`font-semibold text-gray-800 text-sm mb-2 leading-tight ${tarefa.concluida ? 'line-through text-gray-400' : ''}`}>{tarefa.titulo}</h4>
+                <h4 className={`font-semibold text-foreground text-sm mb-2 leading-tight ${tarefa.concluida ? 'line-through text-gray-400' : ''}`}>{tarefa.titulo}</h4>
                 <div className="flex justify-between items-center text-xs text-gray-500 border-t pt-2 border-gray-50">
                     <span className={tarefa.dt_vencimento ? "text-gray-600" : "text-gray-300"}>📅 {formatarData(tarefa.dt_vencimento) || 'S/ Data'}</span>
                     {tarefa.usuario && <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-bold text-indigo-700 border border-indigo-200" title={tarefa.usuario.nome}>{tarefa.usuario.nome.substring(0, 2).toUpperCase()}</div>}
