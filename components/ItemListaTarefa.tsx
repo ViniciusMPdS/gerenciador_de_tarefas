@@ -1,80 +1,87 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { useState, useTransition } from 'react'
+import { toggleConcluida } from '@/app/actions'
 import ModalTarefa from './ModalTarefa'
 
-interface ItemProps {
+interface Props {
   tarefa: any
-  usuarios: any[] // Precisamos da lista de usuários para o modal funcionar
+  usuarios: any[]
+  projetos: any[]
 }
 
-export default function ItemListaTarefa({ tarefa, usuarios }: ItemProps) {
+export default function ItemListaTarefa({ tarefa, usuarios, projetos }: Props) {
   const [showModal, setShowModal] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
-  // Status visual
-  const isDone = tarefa.status === 'FEITO'
-  const isDoing = tarefa.status === 'FAZENDO'
+  const handleCheck = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    startTransition(() => {
+      toggleConcluida(tarefa.id, !tarefa.concluida, tarefa.projeto_id)
+    })
+  }
+
+  const formatarData = (data: string) => {
+    if (!data) return ''
+    return new Date(data).toLocaleDateString('pt-BR')
+  }
+
+  // Define cores da prioridade
+  const getPriorityColor = (id: number) => {
+    if (id === 3) return 'border-red-500 bg-red-50 text-red-700'
+    if (id === 2) return 'border-orange-500 bg-orange-50 text-orange-700'
+    return 'border-green-500 bg-green-50 text-green-700'
+  }
 
   return (
     <>
       <div 
-        onClick={() => setShowModal(true)} // <--- A MÁGICA: Clicou na linha, abre o modal
-        className="bg-surface p-4 rounded-xl border border-border shadow-sm hover:border-indigo-300 hover:shadow-md transition-all flex items-center justify-between group cursor-pointer"
+        onClick={() => setShowModal(true)}
+        className={`group flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer ${tarefa.concluida ? 'opacity-60 bg-gray-50' : ''}`}
       >
-        
         <div className="flex items-center gap-4">
-          {/* Bolinha de Status */}
-          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-            isDone ? 'bg-green-500' : 
-            isDoing ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'
-          }`} title={tarefa.status}></div>
+          <input 
+            type="checkbox" 
+            checked={tarefa.concluida} 
+            onChange={() => {}} // Controlado pelo onClick do div pai ou handleCheck específico
+            onClick={handleCheck}
+            className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+          />
           
           <div>
-            <h4 className={`font-medium text-foreground ${isDone ? 'line-through text-gray-400' : ''}`}>
+            <h4 className={`font-medium text-gray-900 ${tarefa.concluida ? 'line-through text-gray-500' : ''}`}>
               {tarefa.titulo}
             </h4>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-xs text-gray-500 flex items-center gap-1">
-                📂 {tarefa.projeto?.nome || 'Sem projeto'}
+            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">
+                {tarefa.projeto?.nome || 'Sem Projeto'}
               </span>
-              {tarefa.dt_vencimento && (
-                <span className={`text-xs flex items-center gap-1 ${new Date(tarefa.dt_vencimento) < new Date() && !isDone ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
-                  📅 {new Date(tarefa.dt_vencimento).toLocaleDateString('pt-BR')}
-                </span>
-              )}
+              <span>•</span>
+              <span>{formatarData(tarefa.dt_vencimento)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-            {/* Avatar do Responsável */}
-            {tarefa.usuario ? (
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 border border-white shadow-sm" title={tarefa.usuario.nome}>
-                {tarefa.usuario.nome.slice(0, 2).toUpperCase()}
-              </div>
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-surface/50 flex items-center justify-center text-xs text-gray-400 border border-border border-dashed">
-                ?
-              </div>
+        <div className="flex items-center gap-3">
+            {tarefa.usuario && (
+                <div title={tarefa.usuario.nome} className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
+                    {tarefa.usuario.nome.substring(0, 2).toUpperCase()}
+                </div>
             )}
             
-            {/* Link para abrir o projeto específico se quiser sair da modal */}
-            <Link 
-              href={`/projeto/${tarefa.projeto_id}`} 
-              onClick={(e) => e.stopPropagation()} // Impede de abrir o modal se clicar no link
-              className="text-xs text-indigo-600 hover:underline opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-50 px-2 py-1 rounded"
-            >
-              Ir para Quadro
-            </Link>
+            <span className={`text-[10px] px-2 py-1 rounded-full border font-semibold ${getPriorityColor(tarefa.prioridade_id)}`}>
+                {tarefa.prioridade?.nome || 'Normal'}
+            </span>
         </div>
       </div>
 
-      {/* O MODAL */}
+      {/* MODAL DE EDIÇÃO */}
       {showModal && (
         <ModalTarefa 
           tarefa={tarefa} 
           usuarios={usuarios} 
+          projetos={projetos}
+          isOpen={showModal}
           onClose={() => setShowModal(false)} 
         />
       )}
