@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { prisma } from '@/lib/prisma';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
+import { auth } from '@/auth'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,10 +18,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   
+  // Busca o workspace (se não tiver, retorna null sem erro)
   const workspace = await prisma.workspace.findFirst();
-  const usuario = await prisma.usuario.findFirst();
   
-  // Se não existir dados, não quebra a tela, passamos null/array vazio
+  // 1. Pega a sessão
+  const session = await auth()
+  
+  // 2. CORREÇÃO: Inicializa usuário como null
+  let usuario = null
+
+  // 3. Só busca no banco se TIVER um e-mail na sessão
+  if (session?.user?.email) {
+      usuario = await prisma.usuario.findUnique({ 
+          where: { email: session.user.email } 
+      })
+  }
+  
+  // Se não existir dados, não quebra a tela, passamos array vazio
   const projetosIniciais = await prisma.projeto.findMany({
     orderBy: { dt_acesso: 'desc' },
     take: 10

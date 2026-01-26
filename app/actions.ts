@@ -32,10 +32,10 @@ export async function authenticate(
 }
 
 // --- TAREFAS ---
+
 export async function criarTarefa(formData: FormData) {
   const titulo = formData.get('titulo') as string
   const descricao = formData.get('descricao') as string 
-  // MUDANÇA: Lendo como Number
   const prioridadeId = Number(formData.get('prioridadeId'))
   const dificuldadeId = Number(formData.get('dificuldadeId'))
   
@@ -44,7 +44,6 @@ export async function criarTarefa(formData: FormData) {
   const dtVencimentoStr = formData.get('dtVencimento') as string
   let colunaId = formData.get('colunaId') as string
 
-  // Validação ajustada para números
   if (!titulo || !descricao || !prioridadeId || !dificuldadeId || !projetoId || !usuarioId || !dtVencimentoStr) return 
 
   if (!colunaId) {
@@ -59,7 +58,6 @@ export async function criarTarefa(formData: FormData) {
     data: {
       titulo,
       descricao,
-      // Passando os IDs
       prioridade_id: prioridadeId,
       dificuldade_id: dificuldadeId,
       concluida: false,
@@ -73,6 +71,40 @@ export async function criarTarefa(formData: FormData) {
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
+}
+
+// --- NOVA FUNÇÃO DE ATUALIZAR (Para o Modal de Edição) ---
+export async function atualizarTarefa(
+  tarefaId: string, 
+  dados: { 
+    titulo: string; 
+    descricao: string; 
+    prioridadeId: number; 
+    dificuldadeId: number; 
+    usuarioId: string 
+  },
+  projetoId: string
+) {
+  const session = await auth()
+  if (!session) return
+
+  await prisma.tarefa.update({
+    where: { id: tarefaId },
+    data: {
+      titulo: dados.titulo,
+      descricao: dados.descricao,
+      prioridade_id: dados.prioridadeId,
+      dificuldade_id: dados.dificuldadeId,
+      
+      // CORREÇÃO: Usamos direto o ID. Se vier vazio, mandamos null.
+      // Isso evita o conflito de tipos do Prisma.
+      usuario_id: dados.usuarioId || null, 
+    }
+  })
+
+  revalidatePath(`/projeto/${projetoId}`)
+  revalidatePath('/minhas-tarefas')
+  revalidatePath('/')
 }
 
 export async function concluirTarefaComComentario(tarefaId: string, comentario: string, projetoId: string, usuarioId: string) {
@@ -91,13 +123,14 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
   revalidatePath(`/sprint`)
 }
 
+// Essa função antiga (editarTarefa com FormData) pode ser mantida ou removida, 
+// mas a nova `atualizarTarefa` acima é a que o Modal usa.
 export async function editarTarefa(formData: FormData) {
   const id = formData.get('id') as string
   const projeto_id = formData.get('projetoId') as string
   const titulo = formData.get('titulo') as string
   const descricao = formData.get('descricao') as string
   
-  // MUDANÇA: Lendo como Number
   const prioridadeId = Number(formData.get('prioridadeId'))
   const dificuldadeId = Number(formData.get('dificuldadeId'))
   
@@ -120,7 +153,6 @@ export async function editarTarefa(formData: FormData) {
   revalidatePath(`/sprint`)
 }
 
-// ... (Restante das funções: adicionarComentario, moverTarefaDeColuna, etc. continuam iguais)
 export async function adicionarComentario(formData: FormData) {
   const texto = formData.get('texto') as string
   const tarefaId = formData.get('tarefaId') as string
@@ -157,11 +189,19 @@ export async function toggleConcluida(tarefaId: string, isConcluida: boolean, pr
   revalidatePath(`/sprint`)
 }
 
+// --- ATUALIZADO: Excluir Tarefa (Apaga comentários antes) ---
 export async function excluirTarefa(tarefaId: string, projetoId: string) {
+  // Apaga comentários primeiro para não dar erro de chave estrangeira
+  await prisma.comentario.deleteMany({
+    where: { tarefa_id: tarefaId }
+  })
+
   await prisma.tarefa.delete({ where: { id: tarefaId } })
+  
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
+  revalidatePath('/')
 }
 
 export async function atualizarDataTarefa(tarefaId: string, novaData: Date, projetoId: string) {
@@ -287,7 +327,7 @@ export async function getUsuariosDoWorkspace() {
   // Verifica quem está pedindo
   const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   
-  // Segurança: Se não for OWNER, não retorna nada (ou poderia lançar erro)
+  // Segurança: Se não for OWNER, não retorna nada
   if (solicitante?.role !== 'OWNER') return []
 
   return await prisma.usuario.findMany({
@@ -296,13 +336,13 @@ export async function getUsuariosDoWorkspace() {
   })
 }
 
+// --- ATUALIZADO: Criar Usuário com ROLE correta ---
 export async function criarNovoUsuario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.email) return { erro: 'Sem permissão' }
 
   const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   
-  // TRAVA DE SEGURANÇA NO SERVIDOR
   if (solicitante?.role !== 'OWNER') {
     return { erro: 'Apenas administradores podem criar usuários.' }
   }
@@ -311,8 +351,12 @@ export async function criarNovoUsuario(formData: FormData) {
   const email = formData.get('email') as string
   const senha = formData.get('senha') as string
   const cargo = formData.get('cargo') as string
+  
+  // LER O CARGO ESCOLHIDO NO FORMULÁRIO (MEMBER ou MANAGER)
+  let role = formData.get('role') as string
+  // Proteção: Se vier algo estranho, força MEMBER
+  if (role !== 'MANAGER') role = 'MEMBER'
 
-  // Verifica se já existe email
   const existe = await prisma.usuario.findUnique({ where: { email } })
   if (existe) return { erro: 'E-mail já cadastrado.' }
 
@@ -324,7 +368,7 @@ export async function criarNovoUsuario(formData: FormData) {
       email,
       senha: senhaHash,
       cargo: cargo || 'Colaborador',
-      role: 'MEMBER', // Todo usuário criado manualmente entra como MEMBER
+      role: role, // <--- Agora usa a variável correta
       ativo: true,
       workspace_id: solicitante.workspace_id!
     }
@@ -341,11 +385,9 @@ export async function toggleStatusUsuario(usuarioAlvoId: string) {
   const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   if (solicitante?.role !== 'OWNER') return
 
-  // Busca o usuário alvo para inverter o status
   const alvo = await prisma.usuario.findUnique({ where: { id: usuarioAlvoId } })
   if (!alvo) return
 
-  // Impede que o OWNER inative a si mesmo por acidente
   if (alvo.id === solicitante.id) return 
 
   await prisma.usuario.update({

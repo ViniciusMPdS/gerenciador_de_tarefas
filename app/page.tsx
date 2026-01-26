@@ -1,9 +1,22 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import DashboardTarefas from '@/components/DashboardTarefas'
+import { auth } from '@/auth' // Importe o auth
+import { redirect } from 'next/navigation'
 
 export default async function Home() {
-  const usuario = await prisma.usuario.findFirst()
+  const session = await auth()
+
+  // Se não tiver sessão (por segurança), manda pro login
+  if (!session?.user?.email) {
+    redirect('/login')
+  }
+
+  // BUSCA O USUÁRIO PELO EMAIL DA SESSÃO
+  const usuario = await prisma.usuario.findUnique({
+    where: { email: session.user.email }
+  })
+  
   const saudacao = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde'
   
   let minhasTarefas: any[] = []

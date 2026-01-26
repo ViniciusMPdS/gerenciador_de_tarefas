@@ -23,6 +23,14 @@ export const authConfig = {
 
       return true;
     },
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id
+        // Você pode passar o cargo também se quiser usar no client
+        // token.role = user.role 
+      }
+      return token
+    },
     async session({ session, token }) {
         if (token.sub && session.user) {
             session.user.id = token.sub;

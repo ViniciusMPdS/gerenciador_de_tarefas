@@ -34,6 +34,7 @@ model Usuario {
   tarefas      Tarefa[]
   comentarios  Comentario[]
   dt_insert    DateTime     @default(now())
+  dt_update   DateTime @updatedAt @default(now())
 }
 
 model Coluna {
@@ -52,6 +53,7 @@ model Coluna {
   tarefas      Tarefa[]        
   
   dt_insert    DateTime        @default(now())
+  dt_update   DateTime @updatedAt @default(now())
 }
 
 model Projeto {
@@ -70,7 +72,7 @@ model Projeto {
   tarefas      Tarefa[]
   
   dt_insert    DateTime  @default(now())
-  dt_update    DateTime  @updatedAt
+  dt_update   DateTime @updatedAt @default(now())
   dt_acesso    DateTime  @default(now())
 }
 
@@ -93,6 +95,7 @@ model Tarefa {
   dt_vencimento DateTime?
   dt_conclusao  DateTime?
   dt_insert     DateTime  @default(now())
+  dt_update   DateTime @updatedAt @default(now())
 
   // MUDANÇA AQUI: Agora usamos IDs e relações
   prioridade_id Int
@@ -135,6 +138,7 @@ model Comentario {
   usuario_id String
   usuario    Usuario  @relation(fields: [usuario_id], references: [id])
   dt_insert  DateTime @default(now())
+  dt_update   DateTime @updatedAt @default(now())
 }
 
 // (Removi a tabela Equipe pois estava sem uso no momento, para simplificar)
