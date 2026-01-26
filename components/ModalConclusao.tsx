@@ -16,9 +16,9 @@ export default function ModalConclusao({ isOpen, onClose, onConfirm, isSaving }:
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-2">Concluir Tarefa</h3>
+          <h3 className="text-lg font-bold text-foreground mb-2">Concluir Tarefa</h3>
           <p className="text-sm text-gray-500 mb-4">
             Para finalizar esta tarefa, é obrigatório deixar um comentário de encerramento.
           </p>
@@ -35,7 +35,7 @@ export default function ModalConclusao({ isOpen, onClose, onConfirm, isSaving }:
             <button 
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 text-gray-500 hover:bg-surface/50 rounded-lg text-sm font-medium transition-colors"
             >
               Cancelar
             </button>

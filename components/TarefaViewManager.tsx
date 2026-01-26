@@ -65,7 +65,7 @@ function KanbanBoardContent({
     >
       {/* Aviso Vazio */}
       {colunasParaMostrar.length === 0 && !tarefas.some(t => !t.coluna_id) && (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+          <div className="w-full h-full flex items-center justify-center text-gray-400 border-2 border-dashed border-border rounded-xl bg-surface/50/50">
               <p>Nenhuma tarefa encontrada.</p>
           </div>
       )}
@@ -171,9 +171,9 @@ export default function TarefaViewManager({ tarefas, usuarios, todasColunas = []
       `}</style>
 
       {/* Toggle View */}
-      <div className="flex items-center gap-2 bg-white p-1 rounded-lg w-fit border border-gray-200 shadow-sm flex-shrink-0">
-        <button onClick={() => setView('LISTA')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${view === 'LISTA' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>📄 Lista</button>
-        <button onClick={() => setView('QUADRO')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${view === 'QUADRO' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>📋 Quadro</button>
+      <div className="flex items-center gap-2 bg-surface p-1 rounded-lg w-fit border border-border shadow-sm flex-shrink-0">
+        <button onClick={() => setView('LISTA')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${view === 'LISTA' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-surface/50'}`}>📄 Lista</button>
+        <button onClick={() => setView('QUADRO')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${view === 'QUADRO' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-surface/50'}`}>📋 Quadro</button>
       </div>
 
       {view === 'QUADRO' && (
@@ -190,9 +190,9 @@ export default function TarefaViewManager({ tarefas, usuarios, todasColunas = []
       )}
 
       {view === 'LISTA' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 overflow-y-auto custom-scrollbar-thin">
+        <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden flex-1 overflow-y-auto custom-scrollbar-thin">
             <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <thead className="sticky top-0 bg-surface/50 z-10 shadow-sm">
                     <tr className="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
                         <th className="p-4 w-8"></th>
                         <th className="p-4">Tarefa</th>
@@ -204,9 +204,9 @@ export default function TarefaViewManager({ tarefas, usuarios, todasColunas = []
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
                     {tarefas.map(tarefa => (
-                        <tr key={tarefa.id} onClick={() => setSelectedTarefa(tarefa)} className="hover:bg-gray-50 cursor-pointer transition-colors group">
+                        <tr key={tarefa.id} onClick={() => setSelectedTarefa(tarefa)} className="hover:bg-surface/50 cursor-pointer transition-colors group">
                             <td className="p-4"><div className={`w-2 h-2 rounded-full ${tarefa.concluida ? 'bg-green-400' : 'bg-gray-300'}`}></div></td>
-                            <td className="p-4"><span className={`font-medium ${tarefa.concluida ? 'line-through text-gray-400' : 'text-gray-800'}`}>{tarefa.titulo}</span></td>
+                            <td className="p-4"><span className={`font-medium ${tarefa.concluida ? 'line-through text-gray-400' : 'text-foreground'}`}>{tarefa.titulo}</span></td>
                             <td className="p-4"><span className="text-xs font-bold text-indigo-600 uppercase">{tarefa.projeto?.nome}</span></td>
                             <td className="p-4">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${tarefa.coluna ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-red-50 text-red-600 border-red-100'}`}>

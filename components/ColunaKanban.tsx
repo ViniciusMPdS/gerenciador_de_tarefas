@@ -34,18 +34,18 @@ export default function ColunaKanban({ coluna, tarefas, usuarios, projetoId }: P
       ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>}
       // h-full: Garante que a coluna estique até o fim do quadro
       className={`min-w-[300px] w-[300px] flex-shrink-0 flex flex-col rounded-xl border h-full transition-colors ${
-        isOver ? 'bg-indigo-50 border-indigo-300 shadow-inner' : 'bg-gray-50/50 border-gray-200/60'
+        isOver ? 'bg-indigo-50 border-indigo-300 shadow-inner' : 'bg-surface/50/50 border-border/60'
       }`}
     >
       {/* CABEÇALHO (Fixo) */}
-      <div className="p-3 flex items-center justify-between border-b border-gray-100 bg-white/50 rounded-t-xl backdrop-blur-sm flex-shrink-0">
+      <div className="p-3 flex items-center justify-between border-b border-gray-100 bg-surface/50 rounded-t-xl backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isUpdating ? 'bg-yellow-400 animate-pulse' : 'bg-indigo-500'}`}></div>
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide truncate max-w-[180px]" title={coluna.nome}>
             {coluna.nome}
           </h3>
         </div>
-        <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <span className="bg-surface/50 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
           {tarefas.length}
         </span>
       </div>

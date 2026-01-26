@@ -74,17 +74,17 @@ export default function FiltroSprint({ projetos, usuarios }: Props) {
       <div className="relative">
         <button 
           onClick={() => setOpenMenu(openMenu === 'PROJETO' ? null : 'PROJETO')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${projetosSelecionados.length > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${projetosSelecionados.length > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-surface border-border text-gray-600 hover:border-gray-300'}`}
         >
           📂 Projetos {projetosSelecionados.length > 0 && <span className="bg-indigo-600 text-white text-[10px] px-1.5 rounded-full">{projetosSelecionados.length}</span>}
           <span className="text-[10px]">▼</span>
         </button>
 
         {openMenu === 'PROJETO' && (
-          <div className="absolute top-full mt-2 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-2">
+          <div className="absolute top-full mt-2 left-0 w-64 bg-surface rounded-xl shadow-xl border border-gray-100 z-50 p-2">
             <div className="max-h-60 overflow-y-auto space-y-1">
               {projetos.map(proj => (
-                <label key={proj.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <label key={proj.id} className="flex items-center gap-3 p-2 hover:bg-surface/50 rounded-lg cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={projetosSelecionados.includes(proj.id)}
@@ -103,17 +103,17 @@ export default function FiltroSprint({ projetos, usuarios }: Props) {
       <div className="relative">
         <button 
           onClick={() => setOpenMenu(openMenu === 'USUARIO' ? null : 'USUARIO')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${usuariosSelecionados.length > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${usuariosSelecionados.length > 0 ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-surface border-border text-gray-600 hover:border-gray-300'}`}
         >
           👤 Responsável {usuariosSelecionados.length > 0 && <span className="bg-indigo-600 text-white text-[10px] px-1.5 rounded-full">{usuariosSelecionados.length}</span>}
           <span className="text-[10px]">▼</span>
         </button>
 
         {openMenu === 'USUARIO' && (
-          <div className="absolute top-full mt-2 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-2">
+          <div className="absolute top-full mt-2 left-0 w-64 bg-surface rounded-xl shadow-xl border border-gray-100 z-50 p-2">
             <div className="max-h-60 overflow-y-auto space-y-1">
               {usuarios.map(user => (
-                <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <label key={user.id} className="flex items-center gap-3 p-2 hover:bg-surface/50 rounded-lg cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={usuariosSelecionados.includes(user.id)}
@@ -137,21 +137,21 @@ export default function FiltroSprint({ projetos, usuarios }: Props) {
       <div className="relative">
         <button 
           onClick={() => setOpenMenu(openMenu === 'STATUS' ? null : 'STATUS')}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${statusSelecionado !== 'TODOS' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${statusSelecionado !== 'TODOS' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-surface border-border text-gray-600 hover:border-gray-300'}`}
         >
           ✅ Status: {statusSelecionado === 'TODOS' ? 'Todos' : statusSelecionado === 'FEITO' ? 'Concluídas' : 'A Fazer'}
           <span className="text-[10px]">▼</span>
         </button>
 
         {openMenu === 'STATUS' && (
-          <div className="absolute top-full mt-2 left-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-1 overflow-hidden">
-            <button onClick={() => { updateFilters('status', 'TODOS'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-50 ${statusSelecionado === 'TODOS' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
+          <div className="absolute top-full mt-2 left-0 w-48 bg-surface rounded-xl shadow-xl border border-gray-100 z-50 p-1 overflow-hidden">
+            <button onClick={() => { updateFilters('status', 'TODOS'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-surface/50 ${statusSelecionado === 'TODOS' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
               Todos
             </button>
-            <button onClick={() => { updateFilters('status', 'PENDENTE'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-50 ${statusSelecionado === 'PENDENTE' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
+            <button onClick={() => { updateFilters('status', 'PENDENTE'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-surface/50 ${statusSelecionado === 'PENDENTE' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
               🕒 A Fazer (Pendentes)
             </button>
-            <button onClick={() => { updateFilters('status', 'FEITO'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-50 ${statusSelecionado === 'FEITO' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
+            <button onClick={() => { updateFilters('status', 'FEITO'); setOpenMenu(null) }} className={`w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-surface/50 ${statusSelecionado === 'FEITO' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}>
               🏁 Concluídas
             </button>
           </div>

@@ -38,15 +38,15 @@ export default async function GerenciarColunasPage() {
 
   return (
     <div className="p-8 md:p-12 max-w-4xl mx-auto">
-      <header className="mb-8 border-b border-gray-200 pb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Gerenciar Colunas</h1>
+      <header className="mb-8 border-b border-border pb-6">
+        <h1 className="text-3xl font-bold text-foreground">Gerenciar Colunas</h1>
         <p className="text-gray-500 mt-2">
           Defina as etapas (seções) padrões que estarão disponíveis para os projetos.
         </p>
       </header>
 
       {/* Formulário de Criação */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
+      <div className="bg-surface p-6 rounded-xl border border-border shadow-sm mb-8">
         <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Adicionar Nova Coluna</h2>
         <form action={criarColuna} className="flex gap-4">
           <input type="hidden" name="workspaceId" value={workspace.id} />
@@ -69,12 +69,12 @@ export default async function GerenciarColunasPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {workspace.colunas.map(coluna => (
-            <div key={coluna.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg group hover:border-indigo-300 transition-colors shadow-sm">
+            <div key={coluna.id} className="flex items-center justify-between p-4 bg-surface border border-border rounded-lg group hover:border-indigo-300 transition-colors shadow-sm">
               <div className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 text-xs font-bold border border-gray-100">
+                <span className="w-8 h-8 rounded-lg bg-surface/50 flex items-center justify-center text-gray-500 text-xs font-bold border border-gray-100">
                   {coluna.nome.substring(0, 1).toUpperCase()}
                 </span>
-                <span className="font-medium text-gray-800">{coluna.nome}</span>
+                <span className="font-medium text-foreground">{coluna.nome}</span>
               </div>
               
               <form action={excluirColuna}>
