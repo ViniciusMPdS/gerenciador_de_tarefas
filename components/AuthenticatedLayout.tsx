@@ -120,8 +120,8 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
       </aside>
 
       <main className="flex-1 overflow-y-auto h-full flex flex-col bg-surface">
-        <div className="flex-1 overflow-y-auto bg-background p-8">
-             {children}
+        <div className="flex-1 overflow-y-auto bg-background p-4 lg:p-6 xl:p-8">
+          {children}
         </div>
       </main>
     </div>
