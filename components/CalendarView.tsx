@@ -120,7 +120,7 @@ export default function CalendarView({
     <div className="flex flex-col h-full bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
       
       {/* HEADER */}
-      <div className="flex justify-between items-center p-4 border-b border-border bg-surface">
+      <div className="flex justify-between items-center p-4 border-b border-border bg-surface flex-shrink-0">
         <div className="flex items-center gap-4">
             <h2 className="font-bold text-lg text-foreground min-w-[150px]">{nomeMes}</h2>
             {enableNavigation && (
@@ -142,14 +142,17 @@ export default function CalendarView({
       {/* MODO MÊS */}
       {modo === 'MES' && (
         <>
-            <div className="grid grid-cols-7 border-b border-border bg-surface-highlight/30">
+            <div className="grid grid-cols-7 border-b border-border bg-surface-highlight/30 flex-shrink-0">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
                     <div key={d} className="py-2 text-center text-xs font-semibold text-text-muted uppercase tracking-wider">{d}</div>
                 ))}
             </div>
-            <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto bg-surface">
+            {/* --- AQUI ESTÁ A CORREÇÃO PRINCIPAL --- */}
+            {/* Antes: auto-rows-fr (espremia tudo) */}
+            {/* Agora: auto-rows-[minmax(120px,1fr)] (garante altura mínima e cria scroll) */}
+            <div className="grid grid-cols-7 flex-1 auto-rows-[minmax(120px,1fr)] overflow-y-auto bg-surface custom-scrollbar-dark">
                 {diasRenderizados.map((dia, index) => {
-                    if (!dia) return <div key={index} className="bg-surface-highlight/10 border-b border-r border-border min-h-[100px]" />
+                    if (!dia) return <div key={index} className="bg-surface-highlight/10 border-b border-r border-border min-h-[120px]" />
                     return <CalendarDayCell key={index} dia={dia} tarefas={getTarefasDoDia(dia)} onDrop={handleDropTarefa} onClickTask={abrirModal} viewMode="MES" />
                 })}
             </div>
@@ -158,7 +161,7 @@ export default function CalendarView({
 
       {/* MODO SEMANA */}
       {modo === 'SEMANA' && (
-         <div className="flex h-full overflow-x-auto divide-x divide-border bg-surface">
+         <div className="flex h-full overflow-x-auto divide-x divide-border bg-surface custom-scrollbar-dark">
              {diasRenderizados.map((dia, index) => {
                  if (!dia) return null
                  return <CalendarDayCell key={index} dia={dia} tarefas={getTarefasDoDia(dia)} onDrop={handleDropTarefa} onClickTask={abrirModal} viewMode="SEMANA" />
@@ -185,9 +188,10 @@ function CalendarDayCell({ dia, tarefas, onDrop, onClickTask, viewMode }: any) {
 
     if (viewMode === 'MES') {
         return (
-            <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`border-b border-r border-border p-2 min-h-[100px] flex flex-col transition-colors ${bgClass}`}>
+            <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`border-b border-r border-border p-2 flex flex-col transition-colors ${bgClass}`}>
                 <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isHoje ? 'bg-indigo-600 text-white' : 'text-text-muted'}`}>{dia.getDate()}</span>
-                <div className="space-y-1 overflow-y-auto custom-scrollbar-thin max-h-[80px]">
+                {/* Ajustei o max-h para caber na nova altura mínima sem sumir scrollbar interna se tiver muitas tarefas */}
+                <div className="space-y-1 overflow-y-auto custom-scrollbar-thin flex-1 max-h-[120px]">
                     {tarefas.map((t: any) => <DraggableTaskPill key={t.id} tarefa={t} onClick={() => onClickTask(t)} />)}
                 </div>
             </div>
