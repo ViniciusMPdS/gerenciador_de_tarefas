@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport} from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { prisma } from '@/lib/prisma';
@@ -10,6 +10,13 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Gerenciador de Projetos",
   description: "Sistema de Gestão",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // maximumScale: 1, // Opcional: Impede o usuário de dar zoom manual (deixa com cara de app nativo)
+  // userScalable: false, // Opcional: Junto com o de cima, trava o zoom
 };
 
 export default async function RootLayout({
