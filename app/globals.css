@@ -77,9 +77,3 @@ input, textarea, select {
 .text-muted {
   color: var(--color-text-muted);
 }
-
-@media (max-width: 1450px) {
-  html {
-    zoom: 0.85
-  }
-}
