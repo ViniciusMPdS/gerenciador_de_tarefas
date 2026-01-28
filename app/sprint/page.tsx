@@ -2,16 +2,30 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import MinhasTarefasView from '@/components/MinhasTarefasView'
 
+// 1. FORÇA O NEXT A RECALCULAR A PÁGINA EM CADA ACESSO
+// Sem isso, ele "congela" a data do último deploy.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type SearchParams = { view?: string }
 
 export default async function SprintPage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams;
   const view = searchParams.view || 'semana';
 
-  const hoje = new Date();
-  let dataInicio = new Date();
-  let dataFim = new Date();
+  // 2. CORREÇÃO DE FUSO HORÁRIO (A "Mágica" do Brasil)
+  // O servidor Vercel está em UTC (+0). Nós queremos UTC-3.
+  const now = new Date();
+  const offsetBrasil = -3; 
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const dataBrasil = new Date(utc + (3600000 * offsetBrasil));
+
+  // Agora 'hoje' é realmente hoje no Brasil, não importa onde o servidor esteja.
+  const hoje = new Date(dataBrasil);
   hoje.setHours(0, 0, 0, 0);
+
+  let dataInicio = new Date(hoje);
+  let dataFim = new Date(hoje);
 
   if (view === 'mes') {
     dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -24,6 +38,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     dataFim.setDate(hoje.getDate() + (6 - diaSemana));
   }
   
+  // Ajuste para UTC para consulta no banco (Banco sempre espera UTC)
   const dataInicioUTC = new Date(Date.UTC(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate()));
   const dataFimUTC = new Date(Date.UTC(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59));
 
@@ -40,10 +55,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
   const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
 
   return (
-    // MUDANÇA 1: p-0 e w-full (Usa 100% do espaço disponível sem bordas extras)
     <div className="p-0 w-full h-screen flex flex-col">
-      
-      {/* MUDANÇA 2: Header Ultra Compacto */}
       <header className="mb-2 flex-shrink-0 flex justify-between items-end px-1">
         <div>
             <h1 className="text-lg lg:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -73,7 +85,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
         </div>
       </header>
 
-      {/* Container principal ocupando tudo */}
+      {/* Container principal (MinhasTarefasView) */}
       <div className="flex-1 overflow-hidden border border-border rounded-lg bg-surface shadow-sm">
           <MinhasTarefasView 
             tarefasIniciais={tarefas} 
@@ -81,6 +93,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
             usuarios={usuarios} 
             tituloPagina="Sprint Geral"
             enableCalendarNavigation={false} 
+            // Passamos a data calculada aqui no servidor para o componente cliente
             initialCalendarDate={dataInicio}
             calendarViewMode={view === 'mes' ? 'MES' : 'SEMANA'} 
           />
