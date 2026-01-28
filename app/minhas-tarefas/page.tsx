@@ -28,7 +28,12 @@ export default async function MinhasTarefasPage() {
   const filtroTarefas = usuario.role === 'OWNER' ? {} : { usuario_id: usuario.id }
 
   const tarefas = await prisma.tarefa.findMany({
-    where: filtroTarefas,
+    where: {
+      ...filtroTarefas,
+      projeto: {
+         ativo: true 
+      }
+    },
     orderBy: { dt_vencimento: 'asc' },
     include: {
       projeto: true, coluna: true, usuario: true,
@@ -37,7 +42,13 @@ export default async function MinhasTarefasPage() {
     }
   })
 
-  const projetos = await prisma.projeto.findMany({ where: { workspace_id: usuario.workspace_id! }, orderBy: { nome: 'asc' } })
+  const projetos = await prisma.projeto.findMany({
+    where: { 
+      workspace_id: usuario.workspace_id!,
+      ativo: true
+    },
+    orderBy: { nome: 'asc' } 
+  })
   const usuariosDoWorkspace = await prisma.usuario.findMany({ where: { workspace_id: usuario.workspace_id! } })
 
   return (

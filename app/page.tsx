@@ -49,7 +49,8 @@ export default async function Home() {
       where: { 
         usuario_id: usuario.id,
         concluida: false,
-        dt_vencimento: { lt: hojeUTC } 
+        dt_vencimento: { lt: hojeUTC },
+        projeto: { ativo: true }
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
@@ -61,7 +62,8 @@ export default async function Home() {
       where: { 
         usuario_id: usuario.id,
         concluida: false,
-        dt_vencimento: { gte: hojeUTC } 
+        dt_vencimento: { gte: hojeUTC },
+        projeto: { ativo: true }
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
@@ -72,6 +74,7 @@ export default async function Home() {
   }
 
   const projetosRecentes = await prisma.projeto.findMany({
+    where: { ativo: true },
     orderBy: { dt_acesso: 'desc' },
     take: 6,
     include: { _count: { select: { tarefas: true } } }

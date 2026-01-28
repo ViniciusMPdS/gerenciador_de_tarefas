@@ -31,6 +31,24 @@ export async function authenticate(
   }
 }
 
+// --- NOVO: Alternar Status do Projeto (Arquivar/Desarquivar) ---
+export async function toggleStatusProjeto(projetoId: string) {
+  const projeto = await prisma.projeto.findUnique({ where: { id: projetoId } })
+  
+  if (!projeto) return
+
+  await prisma.projeto.update({
+    where: { id: projetoId },
+    data: { ativo: !projeto.ativo }
+  })
+
+  revalidatePath('/')
+  revalidatePath('/projetos')
+  revalidatePath(`/projeto/${projetoId}`)
+  revalidatePath('/minhas-tarefas')
+  revalidatePath('/sprint')
+}
+
 // --- TAREFAS ---
 
 // DTO para Criação (Tipagem Forte)

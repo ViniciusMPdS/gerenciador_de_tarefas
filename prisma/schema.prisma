@@ -60,6 +60,8 @@ model Projeto {
   id           String    @id @default(uuid())
   nome         String
   descricao    String?   @db.Text
+
+  ativo          Boolean   @default(true)
   
   workspace_id String
   workspace    Workspace @relation(fields: [workspace_id], references: [id])

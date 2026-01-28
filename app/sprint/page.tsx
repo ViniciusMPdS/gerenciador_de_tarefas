@@ -47,7 +47,12 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
   const dataFimUTC = new Date(Date.UTC(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59));
 
   const tarefas = await prisma.tarefa.findMany({
-    where: { dt_vencimento: { gte: dataInicioUTC, lte: dataFimUTC } },
+    where: {
+       dt_vencimento: { gte: dataInicioUTC, lte: dataFimUTC }, 
+       projeto: {
+         ativo: true 
+      }
+    },
     orderBy: { dt_vencimento: 'asc' },
     include: {
       projeto: true, usuario: true, coluna: true,
@@ -55,7 +60,10 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     }
   })
 
-  const projetos = await prisma.projeto.findMany({ orderBy: { nome: 'asc' } })
+  const projetos = await prisma.projeto.findMany({
+    where: { ativo: true },
+    orderBy: { nome: 'asc' } 
+  })
   const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
 
   return (
