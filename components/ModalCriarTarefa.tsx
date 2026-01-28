@@ -13,16 +13,53 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
   const [isOpen, setIsOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
+  // Estados locais
+  const [titulo, setTitulo] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [dtVencimento, setDtVencimento] = useState('')
+  const [colunaId, setColunaId] = useState(colunas.length > 0 ? colunas[0].id : '')
+  const [prioridadeId, setPrioridadeId] = useState('2') // "2" (String) -> será convertido para 2 (Int)
+  const [dificuldadeId, setDificuldadeId] = useState('3') // "3" (String) -> será convertido para 3 (Int)
+  const [usuarioId, setUsuarioId] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if(!titulo || !usuarioId) return;
+
     setIsSaving(true)
-    await criarTarefa(formData)
+
+    // Ajuste Fuso Horário (Meio-dia)
+    let dataIso = null
+    if (dtVencimento) {
+        const d = new Date(dtVencimento)
+        d.setHours(12, 0, 0, 0) 
+        dataIso = d
+    }
+
+    // Chama a action passando os dados tipados corretamente
+    await criarTarefa({
+        titulo,
+        descricao,
+        dt_vencimento: dataIso,
+        projeto_id: projetoId,
+        coluna_id: colunaId,
+        // CONVERSÃO PARA INTEIRO
+        prioridade_id: Number(prioridadeId),
+        dificuldade_id: Number(dificuldadeId),
+        usuario_id: usuarioId
+    })
+
     setIsSaving(false)
     setIsOpen(false)
+    
+    // Limpa form
+    setTitulo('')
+    setDescricao('')
+    setDtVencimento('')
   }
 
   return (
     <>
-      {/* BOTÃO QUE FICA NO HEADER DO PROJETO */}
       <button 
         onClick={() => setIsOpen(true)}
         className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
@@ -31,7 +68,6 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
         <span className="hidden sm:inline">Nova Tarefa</span>
       </button>
 
-      {/* MODAL */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsOpen(false)} />
@@ -43,14 +79,13 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
               <button onClick={() => setIsOpen(false)} className="text-text-muted hover:text-foreground">✕</button>
             </div>
             
-            <form action={handleSubmit} className="p-6 space-y-4">
-              <input type="hidden" name="projetoId" value={projetoId} />
-
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              
               {/* TÍTULO */}
               <div>
                 <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Título</label>
                 <input 
-                  name="titulo" 
+                  value={titulo} onChange={e => setTitulo(e.target.value)}
                   required 
                   autoFocus
                   className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none placeholder-text-muted" 
@@ -62,7 +97,7 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
               <div>
                 <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Descrição</label>
                 <textarea 
-                  name="descricao" 
+                  value={descricao} onChange={e => setDescricao(e.target.value)}
                   rows={3} 
                   required
                   className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none placeholder-text-muted resize-none" 
@@ -76,16 +111,16 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Vencimento</label>
                    <input 
                       type="date" 
-                      name="dtVencimento" 
+                      value={dtVencimento} onChange={e => setDtVencimento(e.target.value)}
                       required
-                      className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none" 
+                      className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none scheme-dark" 
                    />
                 </div>
 
                 {/* COLUNA INICIAL */}
                 <div>
                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Etapa Inicial</label>
-                   <select name="colunaId" className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
+                   <select value={colunaId} onChange={e => setColunaId(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
                       {colunas.map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
@@ -94,12 +129,11 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                 {/* PRIORIDADE (SEM SÍMBOLOS) */}
+                 {/* PRIORIDADE (Valores 1, 2, 3 que existem no banco) */}
                  <div>
                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Prioridade</label>
                    <select 
-                      name="prioridadeId" 
-                      defaultValue="2" 
+                      value={prioridadeId} onChange={e => setPrioridadeId(e.target.value)}
                       className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
                    >
                       <option value="1">Baixa</option>
@@ -108,12 +142,11 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                    </select>
                 </div>
 
-                {/* DIFICULDADE (SEM SÍMBOLOS) */}
+                {/* DIFICULDADE (Valores 1-5 que existem no banco) */}
                 <div>
                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Dificuldade</label>
                    <select 
-                      name="dificuldadeId" 
-                      defaultValue="3"
+                      value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)}
                       className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
                    >
                       <option value="1">Muito Fácil</option>
@@ -128,7 +161,7 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
               {/* RESPONSÁVEL */}
               <div>
                  <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Responsável</label>
-                 <select name="usuarioId" required className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
+                 <select value={usuarioId} onChange={e => setUsuarioId(e.target.value)} required className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="">Selecione...</option>
                     {usuarios.map(u => (
                       <option key={u.id} value={u.id}>{u.nome}</option>

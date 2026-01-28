@@ -33,22 +33,29 @@ export async function authenticate(
 
 // --- TAREFAS ---
 
-export async function criarTarefa(formData: FormData) {
-  const titulo = formData.get('titulo') as string
-  const descricao = formData.get('descricao') as string 
-  const prioridadeId = Number(formData.get('prioridadeId'))
-  const dificuldadeId = Number(formData.get('dificuldadeId'))
-  
-  const projetoId = formData.get('projetoId') as string
-  const usuarioId = formData.get('usuarioId') as string
-  const dtVencimentoStr = formData.get('dtVencimento') as string
-  let colunaId = formData.get('colunaId') as string
+// DTO para Criação (Tipagem Forte)
+interface CriarTarefaDTO {
+  titulo: string
+  descricao: string
+  dt_vencimento: Date | null
+  projeto_id: string
+  coluna_id?: string
+  usuario_id: string | null
+  prioridade_id: number
+  dificuldade_id: number
+}
 
-  if (!titulo || !descricao || !prioridadeId || !dificuldadeId || !projetoId || !usuarioId || !dtVencimentoStr) return 
+// ATUALIZADO: Aceita objeto JSON em vez de FormData
+export async function criarTarefa(data: CriarTarefaDTO) {
+  // Validação básica
+  if (!data.titulo || !data.projeto_id) return 
 
+  let colunaId = data.coluna_id
+
+  // Se não veio coluna, pega a primeira do projeto
   if (!colunaId) {
      const primeiraColuna = await prisma.projetoColuna.findFirst({
-        where: { projeto_id: projetoId },
+        where: { projeto_id: data.projeto_id },
         orderBy: { ordem: 'asc' }
      })
      if (primeiraColuna) colunaId = primeiraColuna.coluna_id
@@ -56,33 +63,37 @@ export async function criarTarefa(formData: FormData) {
 
   await prisma.tarefa.create({
     data: {
-      titulo,
-      descricao,
-      prioridade_id: prioridadeId,
-      dificuldade_id: dificuldadeId,
+      titulo: data.titulo,
+      descricao: data.descricao,
+      prioridade_id: data.prioridade_id,
+      dificuldade_id: data.dificuldade_id,
       concluida: false,
-      coluna_id: colunaId || undefined,
-      projeto_id: projetoId,
-      usuario_id: usuarioId,
-      dt_vencimento: new Date(dtVencimentoStr)
+      coluna_id: colunaId || undefined, // undefined deixa o Prisma decidir (se for opcional)
+      projeto_id: data.projeto_id,
+      usuario_id: data.usuario_id || null,
+      dt_vencimento: data.dt_vencimento
     },
   })
 
-  revalidatePath(`/projeto/${projetoId}`)
+  revalidatePath(`/projeto/${data.projeto_id}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
-// --- NOVA FUNÇÃO DE ATUALIZAR (Para o Modal de Edição) ---
+// DTO para Atualização
+interface AtualizarTarefaDTO {
+  titulo: string
+  descricao: string
+  dt_vencimento: Date | null
+  prioridade_id: number
+  dificuldade_id: number
+  usuario_id: string | null
+}
+
+// ATUALIZADO: Aceita objeto com snake_case e tipos corretos
 export async function atualizarTarefa(
   tarefaId: string, 
-  dados: { 
-    titulo: string; 
-    descricao: string; 
-    prioridadeId: number; 
-    dificuldadeId: number; 
-    usuarioId: string 
-  },
+  data: AtualizarTarefaDTO,
   projetoId: string
 ) {
   const session = await auth()
@@ -91,14 +102,12 @@ export async function atualizarTarefa(
   await prisma.tarefa.update({
     where: { id: tarefaId },
     data: {
-      titulo: dados.titulo,
-      descricao: dados.descricao,
-      prioridade_id: dados.prioridadeId,
-      dificuldade_id: dados.dificuldadeId,
-      
-      // CORREÇÃO: Usamos direto o ID. Se vier vazio, mandamos null.
-      // Isso evita o conflito de tipos do Prisma.
-      usuario_id: dados.usuarioId || null, 
+      titulo: data.titulo,
+      descricao: data.descricao,
+      prioridade_id: data.prioridade_id,
+      dificuldade_id: data.dificuldade_id,
+      usuario_id: data.usuario_id || null, 
+      dt_vencimento: data.dt_vencimento
     }
   })
 
@@ -123,8 +132,7 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
   revalidatePath(`/sprint`)
 }
 
-// Essa função antiga (editarTarefa com FormData) pode ser mantida ou removida, 
-// mas a nova `atualizarTarefa` acima é a que o Modal usa.
+// Mantido para compatibilidade se algo antigo ainda usar, mas o Modal novo usa 'atualizarTarefa'
 export async function editarTarefa(formData: FormData) {
   const id = formData.get('id') as string
   const projeto_id = formData.get('projetoId') as string
@@ -153,21 +161,30 @@ export async function editarTarefa(formData: FormData) {
   revalidatePath(`/sprint`)
 }
 
-export async function adicionarComentario(formData: FormData) {
-  const texto = formData.get('texto') as string
-  const tarefaId = formData.get('tarefaId') as string
-  const projetoId = formData.get('projetoId') as string
-  const usuarioId = formData.get('usuarioId') as string 
-
-  if (!texto || !tarefaId || !usuarioId) return null
+// ATUALIZADO: Aceita argumentos diretos e busca usuário da sessão
+export async function adicionarComentario(tarefaId: string, texto: string) {
+  const session = await auth()
+  if (!session?.user?.email) return null
+  
+  // Busca o usuário pelo e-mail da sessão para pegar o ID correto
+  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  
+  if (!texto || !tarefaId || !usuario) return null
 
   const novoComentario = await prisma.comentario.create({
-    data: { texto, tarefa_id: tarefaId, usuario_id: usuarioId },
+    data: { 
+        texto, 
+        tarefa_id: tarefaId, 
+        usuario_id: usuario.id 
+    },
     include: { usuario: true }
   })
-  revalidatePath(`/projeto/${projetoId}`)
-  revalidatePath(`/minhas-tarefas`)
-  revalidatePath(`/sprint`)
+  
+  // Como não temos o projetoId aqui fácil, revalidamos tudo que é importante
+  revalidatePath('/')
+  revalidatePath('/minhas-tarefas')
+  revalidatePath('/sprint')
+  
   return novoComentario
 }
 
