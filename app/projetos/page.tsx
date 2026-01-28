@@ -4,7 +4,11 @@ import BotaoNovoProjeto from '@/components/BotaoNovoProjeto'
 
 export default async function TodosProjetosPage() {
   const projetos = await prisma.projeto.findMany({
-    orderBy: { nome: 'asc' },
+    // ORDENAÇÃO: Ativos primeiro, depois por nome
+    orderBy: [
+        { ativo: 'desc' }, 
+        { nome: 'asc' }
+    ],
     include: {
       _count: { select: { tarefas: true } }
     }
@@ -26,13 +30,18 @@ export default async function TodosProjetosPage() {
         <BotaoNovoProjeto />
       </header>
 
-      {/* MUDANÇA 3: Grid com gap menor em telas pequenas (gap-3 vs gap-6) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6">
         {projetos.map(projeto => (
           <Link 
             href={`/projeto/${projeto.id}`} 
             key={projeto.id}
-            className="group bg-surface p-4 lg:p-6 rounded-xl border border-border hover:border-indigo-300 hover:shadow-md transition-all flex flex-col"
+            // ESTILO DINÂMICO: Se inativo, fica cinza e meio transparente
+            className={`group bg-surface p-4 lg:p-6 rounded-xl border transition-all flex flex-col
+                ${projeto.ativo 
+                    ? 'border-border hover:border-indigo-300 hover:shadow-md' 
+                    : 'border-gray-100 opacity-60 grayscale hover:grayscale-0'
+                }
+            `}
           >
             <div className="flex justify-between items-start mb-2 lg:mb-4">
               <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-surface/50 flex items-center justify-center text-gray-500 font-bold text-sm lg:text-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -41,6 +50,7 @@ export default async function TodosProjetosPage() {
               <span className="text-[10px] lg:text-xs font-medium bg-surface/50 text-gray-600 px-2 py-1 rounded-full">
                 {projeto._count.tarefas} tarefas
               </span>
+              {!projeto.ativo && <span className="text-[9px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded">Arquivado</span>}
             </div>
             <h3 className="text-base lg:text-lg font-bold text-foreground mb-1 group-hover:text-indigo-600 transition-colors truncate">
               {projeto.nome}

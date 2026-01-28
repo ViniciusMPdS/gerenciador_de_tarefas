@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import MinhasTarefasView from '@/components/MinhasTarefasView' 
 import ModalConfigProjeto from '@/components/ModalConfigProjeto'
 import ModalCriarTarefa from '@/components/ModalCriarTarefa' 
+import BotaoStatusProjeto from '@/components/BotaoStatusProjeto' // <--- IMPORTAR
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -56,22 +57,35 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
       {/* HEADER */}
       <header className="px-8 py-6 bg-surface border-b border-border flex justify-between items-center sticky top-0 z-20">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{projeto.nome}</h1>
+          <div className="flex items-center gap-3">
+             <h1 className={`text-2xl font-bold ${projeto.ativo ? 'text-foreground' : 'text-gray-400 line-through'}`}>
+                {projeto.nome}
+             </h1>
+             {/* --- NOVO BOTÃO AQUI --- */}
+             <BotaoStatusProjeto projetoId={projeto.id} ativo={projeto.ativo} />
+          </div>
           <p className="text-text-muted text-sm mt-1">{projeto.descricao || 'Sem descrição'}</p>
+          {!projeto.ativo && (
+             <span className="text-xs text-red-400 font-bold mt-1 block">⚠️ Projeto Inativo: As tarefas não aparecem na Sprint/Dashboard.</span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          <ModalConfigProjeto 
-            projeto={projeto} 
-            colunasDisponiveis={bibliotecaColunas} 
-            colunasDoProjeto={projeto.colunas}     
-          />
-
-          <ModalCriarTarefa 
-             projetoId={projeto.id}
-             colunas={colunasDoKanban} 
-             usuarios={usuarios}
-          />
+          {/* Só permite criar tarefa se estiver ATIVO (opcional, mas recomendado) */}
+          {projeto.ativo && (
+            <>
+                <ModalConfigProjeto 
+                    projeto={projeto} 
+                    colunasDisponiveis={bibliotecaColunas} 
+                    colunasDoProjeto={projeto.colunas}     
+                />
+                <ModalCriarTarefa 
+                    projetoId={projeto.id}
+                    colunas={colunasDoKanban} 
+                    usuarios={usuarios}
+                />
+            </>
+          )}
         </div>
       </header>
 
