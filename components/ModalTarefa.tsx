@@ -174,9 +174,9 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Prioridade</label>
                     {modoEdicao ? (
                         <select value={prioridadeId} onChange={e => setPrioridadeId(e.target.value)} className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground">
-                            <option value="1">Baixa</option>
-                            <option value="2">Média</option>
-                            <option value="3">Alta</option>
+                            <option value="1">1 - Baixa</option>
+                            <option value="2">2 - Média</option>
+                            <option value="3">3 - Alta</option>
                         </select>
                     ) : (
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border 
@@ -191,11 +191,11 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Dificuldade</label>
                     {modoEdicao ? (
                         <select value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)} className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground">
-                            <option value="1">Muito Fácil</option>
-                            <option value="2">Fácil</option>
-                            <option value="3">Média</option>
-                            <option value="4">Difícil</option>
-                            <option value="5">Muito Difícil</option>
+                            <option value="1">1 - Muito Fácil</option>
+                            <option value="2">2 - Fácil</option>
+                            <option value="3">3 - Média</option>
+                            <option value="4">4 - Difícil</option>
+                            <option value="5">5 - Muito Difícil</option>
                         </select>
                     ) : (
                         <span className="text-sm font-medium text-foreground">{tarefa.dificuldade?.nome || 'Média'}</span>

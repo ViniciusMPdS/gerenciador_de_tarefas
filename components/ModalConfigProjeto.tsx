@@ -65,7 +65,7 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
                       <span className="w-5 h-5 min-w-[20px] rounded bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold">
                         {pc.ordem}
                       </span>
-                      <span className="font-medium text-gray-700 text-sm truncate" title={pc.coluna.nome}>{pc.coluna.nome}</span>
+                      <span className="font-medium text-foreground text-sm truncate" title={pc.coluna.nome}>{pc.coluna.nome}</span>
                     </div>
                     
                     <form action={desvincularColunaDoProjeto}>
@@ -115,7 +115,7 @@ export default function ModalConfigProjeto({ projeto, colunasDisponiveis, coluna
                         value={c.id} 
                         className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">{c.nome}</span>
+                      <span className="text-sm color-foreground">{c.nome}</span>
                     </label>
                   ))}
                 </div>
