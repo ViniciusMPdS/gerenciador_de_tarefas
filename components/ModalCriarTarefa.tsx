@@ -136,9 +136,9 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                       value={prioridadeId} onChange={e => setPrioridadeId(e.target.value)}
                       className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
                    >
-                      <option value="1">Baixa</option>
-                      <option value="2">Média</option>
-                      <option value="3">Alta</option>
+                      <option value="1">1 - Baixa</option>
+                      <option value="2">2 - Média</option>
+                      <option value="3">3 - Alta</option>
                    </select>
                 </div>
 
@@ -149,11 +149,11 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                       value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)}
                       className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
                    >
-                      <option value="1">Muito Fácil</option>
-                      <option value="2">Fácil</option>
-                      <option value="3">Média</option>
-                      <option value="4">Difícil</option>
-                      <option value="5">Muito Difícil</option>
+                      <option value="1">1 - Muito Fácil</option>
+                      <option value="2">2 - Fácil</option>
+                      <option value="3">3 - Média</option>
+                      <option value="4">4 - Difícil</option>
+                      <option value="5">5 - Muito Difícil</option>
                    </select>
                 </div>
               </div>

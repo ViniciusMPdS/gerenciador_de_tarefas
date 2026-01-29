@@ -46,15 +46,23 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
         } bg-surface text-white flex flex-col flex-shrink-0 h-full transition-all duration-300 ease-in-out shadow-2xl z-20`}
       >
         {/* HEADER */}
-        <div className="h-16 flex items-center px-0 border-b border-white/10 flex-shrink-0 relative">
-            <div className={`flex items-center px-6 transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                <div className="relative w-8 h-8 mr-3 flex-shrink-0"> 
-                  {/* Se não tiver logo.png, removemos o componente Image temporariamente para não dar erro */}
-                  <div className="w-8 h-8 bg-indigo-500 rounded flex items-center justify-center font-bold">OP</div>
+        <div className="h-20 flex items-center px-6 border-b border-white/10 flex-shrink-0 relative">
+            <div className={`w-full transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                
+                {/* ÁREA DA LOGO */}
+                <div className="relative w-50 h-20" title={workspace?.nome || 'Home'}> 
+                  <Image 
+                    src="/flow-sem-fundo.png" 
+                    alt="Logo"
+                    fill
+                    className="object-contain object-left" // Alinha a esquerda
+                    priority
+                  />
                 </div>
-                <span className="font-semibold tracking-tight text-white truncate whitespace-nowrap">
+
+                {/*<span className="font-semibold tracking-tight text-white truncate whitespace-nowrap">
                   {workspace?.nome || 'Empresa'}
-                </span>
+                </span>*/}
             </div>
 
             <button 

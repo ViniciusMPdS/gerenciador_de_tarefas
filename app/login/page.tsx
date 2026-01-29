@@ -1,64 +1,89 @@
 'use client'
 
-import { useActionState } from 'react' // <--- MUDOU AQUI (antes era useFormState do react-dom)
+import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { authenticate } from '@/app/actions'
+import Image from 'next/image'
 
 export default function LoginPage() {
-  // Use useActionState no lugar de useFormState
   const [errorMessage, dispatch, isPending] = useActionState(authenticate, undefined)
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface/50 p-4">
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/50 p-4 overflow-hidden">
+      
+      {/* CARD CENTRALIZADO */}
+      {/* max-h-full garante que o card nunca seja maior que a tela */}
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-full border border-white/5">
         
-        {/* CABEÇALHO */}
-        <div className="bg-indigo-600 p-8 text-center">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Gestor de Tarefas</h1>
-          <p className="text-indigo-200 text-sm mt-2 font-medium">Acesso Restrito</p>
+        {/* --- LOGO SUPERIOR (GERTECH) --- */}
+        <div className="pt-10 pb-2 bg-gray-300 flex justify-center items-center shrink-0">
+            <div className="relative w-72 h-24"> 
+                <Image 
+                    src="/gertech-sem-fundo.png"
+                    alt="Gertech"
+                    fill
+                    className="object-contain"
+                    priority
+                />
+            </div>
         </div>
 
-        {/* FORMULÁRIO */}
-        <form action={dispatch} className="p-8 space-y-6">
+        {/* FORMULÁRIO (COM SCROLL INTERNO SE NECESSÁRIO) */}
+        {/* Se a tela for minúscula (celular deitado), o scroll aparece SÓ AQUI dentro */}
+        <form action={dispatch} className="px-8 py-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar-thin">
           
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2" htmlFor="email">
-              E-mail Corporativo
+            <label className="block text-xs font-bold text-gray-400 uppercase mb-2" htmlFor="email">
+              E-mail
             </label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-gray-500"
               id="email"
               type="email"
               name="email"
-              placeholder="admin@empresa.com"
               required
               autoFocus
+              placeholder="exemplo@gertech.com.br"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2" htmlFor="password">
+            <label className="block text-xs font-bold text-gray-400 uppercase mb-2" htmlFor="password">
               Senha
             </label>
             <input
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-gray-500"
               id="password"
               type="password"
               name="password"
-              placeholder="••••••••"
               required
+              placeholder="••••••••"
             />
           </div>
 
-          {/* MENSAGEM DE ERRO */}
           {errorMessage && (
-            <div className="bg-red-50 text-red-600 text-xs p-3 rounded-lg flex items-center gap-2 border border-red-100 animate-in slide-in-from-top-2">
+            <div className="bg-red-900/20 text-red-400 text-xs p-3 rounded-lg flex items-center gap-2 border border-red-900/50 shrink-0">
               ⚠️ {errorMessage}
             </div>
           )}
 
-          <LoginButton />
+          <div className="pt-2">
+            <LoginButton />
+          </div>
         </form>
+
+        {/* --- LOGO INFERIOR (FLOW) --- */}
+        <div className="pb-8 pt-2 flex flex-col justify-center items-center gap-2 shrink-0">
+            <div className="relative w-48 h-16 opacity-70 grayscale hover:grayscale-0 transition-all"> 
+                <Image 
+                    src="/flow-sem-fundo.png" 
+                    alt="Logo Rodapé"
+                    fill
+                    className="object-contain"
+                />
+            </div>
+        </div>
+
       </div>
     </div>
   )
@@ -69,11 +94,11 @@ function LoginButton() {
 
   return (
     <button
-      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
       aria-disabled={pending}
       disabled={pending}
     >
-      {pending ? 'Entrando...' : 'Acessar Sistema'}
+      {pending ? 'Entrando...' : 'Entrar'}
     </button>
   )
 }
