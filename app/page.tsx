@@ -20,31 +20,22 @@ export default async function Home() {
   })
   
   // --- CORREÇÃO DE FUSO HORÁRIO (A MÁGICA) ---
-  // O servidor está em UTC (+0). O Brasil está em UTC-3.
-  // Vamos criar uma data "virtual" que representa a hora atual no Brasil.
   const now = new Date();
   const offsetBrasil = -3; 
-  // Pega o tempo em milissegundos UTC
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  // Aplica -3 horas
   const dataBrasil = new Date(utc + (3600000 * offsetBrasil));
 
-  // AGORA USAMOS A 'dataBrasil' PARA TUDO
   const horaAtual = dataBrasil.getHours();
   const saudacao = horaAtual < 12 ? 'Bom dia' : (horaAtual < 18 ? 'Boa tarde' : 'Boa noite');
 
   let minhasTarefas: any[] = []
 
   if (usuario) {
-    // Para filtrar tarefas, queremos o começo do dia (00:00:00) no Brasil
     const hojeBrasil = new Date(dataBrasil);
     hojeBrasil.setHours(0, 0, 0, 0);
 
-    // Converte para UTC para bater com o banco de dados (que salva em UTC)
-    // Ex: 00:00 Brasil -> 03:00 UTC
     const hojeUTC = new Date(Date.UTC(hojeBrasil.getFullYear(), hojeBrasil.getMonth(), hojeBrasil.getDate(), 3, 0, 0));
 
-    // Busca ATRASADAS (Menor que hoje 03:00 UTC)
     const atrasadas = await prisma.tarefa.findMany({
       where: { 
         usuario_id: usuario.id,
@@ -54,10 +45,9 @@ export default async function Home() {
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
-      include: { projeto: true }
+      include: { projeto: true, usuario: true, prioridade: true, dificuldade: true, comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } }
     })
 
-    // Busca FUTURAS/HOJE (Maior ou igual a hoje 03:00 UTC)
     const futuras = await prisma.tarefa.findMany({
       where: { 
         usuario_id: usuario.id,
@@ -67,7 +57,7 @@ export default async function Home() {
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
-      include: { projeto: true }
+      include: { projeto: true, usuario: true, prioridade: true, dificuldade: true, comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } }
     })
 
     minhasTarefas = [...atrasadas, ...futuras]
@@ -80,8 +70,18 @@ export default async function Home() {
     include: { _count: { select: { tarefas: true } } }
   })
 
+  // --- NOVAS BUSCAS NECESSÁRIAS PARA O MODAL ---
+  const todosProjetos = await prisma.projeto.findMany({
+    where: { workspace_id: usuario?.workspace_id!, ativo: true },
+    orderBy: { nome: 'asc' }
+  })
+
+  const todosUsuarios = await prisma.usuario.findMany({
+    where: { workspace_id: usuario?.workspace_id! },
+    orderBy: { nome: 'asc' }
+  })
+
   return (
-    // Mantive o layout compacto que fizemos antes
     <div className="p-2 lg:p-8 max-w-full lg:max-w-7xl mx-auto min-h-screen">
       
       <header className="mb-4 lg:mb-8">
@@ -90,13 +90,17 @@ export default async function Home() {
         </h1>
         <p className="text-gray-500 text-xs lg:text-sm mt-1">
            Aqui está o resumo do seu dia. 
-           {/* (Opcional: Debug para ver se a hora está certa na Vercel) */}
-           {/* <span className="ml-2 text-[10px] opacity-50">Brasília: {dataBrasil.toLocaleTimeString()}</span> */}
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start">
-        <DashboardTarefas tarefas={minhasTarefas} usuarioNome={usuario?.nome || 'Eu'} />
+        <DashboardTarefas 
+          tarefas={minhasTarefas} 
+          usuarioNome={usuario?.nome || 'Eu'} 
+          usuarioId={usuario?.id || ''}
+          projetosDisponiveis={todosProjetos}
+          usuariosDisponiveis={todosUsuarios}
+        />
 
         <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col h-[500px]">
             <div className="p-4 lg:p-5 border-b border-gray-100 flex flex-col gap-3 lg:gap-4 bg-surface/50 min-h-[80px] lg:min-h-[105px] justify-center">
