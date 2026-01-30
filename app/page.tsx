@@ -73,7 +73,12 @@ export default async function Home() {
   // --- NOVAS BUSCAS NECESSÁRIAS PARA O MODAL ---
   const todosProjetos = await prisma.projeto.findMany({
     where: { workspace_id: usuario?.workspace_id!, ativo: true },
-    orderBy: { nome: 'asc' }
+    include: {
+        colunas: {
+            include: { coluna: true },
+            orderBy: { ordem: 'asc' }
+        }
+    }
   })
 
   const todosUsuarios = await prisma.usuario.findMany({

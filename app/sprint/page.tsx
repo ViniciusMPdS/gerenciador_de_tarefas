@@ -62,8 +62,15 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
 
   const projetos = await prisma.projeto.findMany({
     where: { ativo: true },
-    orderBy: { nome: 'asc' } 
+    orderBy: { nome: 'asc' },
+    include: {
+        colunas: {
+            include: { coluna: true },
+            orderBy: { ordem: 'asc' }
+        }
+    }
   })
+
   const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
 
   return (

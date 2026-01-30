@@ -47,8 +47,15 @@ export default async function MinhasTarefasPage() {
       workspace_id: usuario.workspace_id!,
       ativo: true
     },
-    orderBy: { nome: 'asc' } 
+    orderBy: { nome: 'asc' },
+    include: {
+      colunas: {
+        include: { coluna: true },
+        orderBy: { ordem: 'asc' }
+      }
+    }
   })
+
   const usuariosDoWorkspace = await prisma.usuario.findMany({ where: { workspace_id: usuario.workspace_id! } })
 
   return (
