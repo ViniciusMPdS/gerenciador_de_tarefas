@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { toggleConcluida, moverTarefaDeColuna, concluirTarefaComComentario } from '@/app/actions' 
+import { useState, useTransition, useEffect, useCallback, useRef } from 'react'
+import { toggleConcluida, moverTarefaDeColuna, concluirTarefaComComentario, reordenarColunas } from '@/app/actions' 
 import CalendarView from './CalendarView' 
 import ModalTarefa from './ModalTarefa'
 import ModalConclusao from './ModalConclusao'
 
 // --- IMPORTS DRAG AND DROP ---
-import { DndProvider, useDrag, useDrop } from 'react-dnd'
+import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 
 interface Props {
@@ -16,13 +16,84 @@ interface Props {
   usuarios?: any[] 
   colunas?: any[] 
   tituloPagina?: string
-  
   enableCalendarNavigation?: boolean
   initialCalendarDate?: Date
   calendarViewMode?: 'SEMANA' | 'MES' 
-  
   agrupamento?: 'PROJETO' | 'COLUNA' 
   esconderFiltroProjeto?: boolean 
+}
+
+const ItemTypes = {
+  TASK: 'KANBAN_TASK',
+  COLUMN: 'KANBAN_COLUMN'
+}
+
+// --- 1. HOOK DE AUTO-SCROLL ---
+function useAutoScroll(scrollContainerRef: React.RefObject<HTMLDivElement | null>) {
+    const isDraggingRef = useRef(false)
+    
+    useDragLayer(monitor => {
+        isDraggingRef.current = monitor.isDragging()
+        return {}
+    })
+
+    useEffect(() => {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        let animationFrameId: number
+        let mouseX = 0
+
+        const handleMouseMove = (e: MouseEvent) => {
+            mouseX = e.clientX
+        }
+
+        const autoScrollLoop = () => {
+            if (isDraggingRef.current && container) {
+                const { left, right } = container.getBoundingClientRect()
+                const edgeSize = 300
+                const maxSpeed = 25
+
+                if (mouseX < left + edgeSize && mouseX > 0) {
+                    const intensity = Math.max(0, (left + edgeSize - mouseX) / edgeSize)
+                    container.scrollLeft -= maxSpeed * intensity
+                } 
+                else if (mouseX > right - edgeSize && mouseX < window.innerWidth) {
+                    const intensity = Math.max(0, (mouseX - (right - edgeSize)) / edgeSize)
+                    container.scrollLeft += maxSpeed * intensity
+                }
+            }
+            animationFrameId = requestAnimationFrame(autoScrollLoop)
+        }
+
+        autoScrollLoop()
+        window.addEventListener('mousemove', handleMouseMove)
+        window.addEventListener('dragover', handleMouseMove)
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove)
+            window.removeEventListener('dragover', handleMouseMove)
+            cancelAnimationFrame(animationFrameId)
+        }
+    }, [scrollContainerRef])
+}
+
+// --- 2. NOVO COMPONENTE CONTAINER (CORREÇÃO DO ERRO) ---
+// Criamos este componente para isolar o uso do 'useAutoScroll' dentro do DndProvider
+const KanbanBoardContainer = ({ children }: { children: React.ReactNode }) => {
+    const ref = useRef<HTMLDivElement>(null)
+    
+    // Agora é seguro chamar isso aqui, pois este componente será renderizado DENTRO do Provider
+    useAutoScroll(ref) 
+
+    return (
+        <div 
+            ref={ref}
+            className="h-full overflow-x-auto overflow-y-hidden flex gap-4 pb-2 custom-scrollbar"
+        >
+            {children}
+        </div>
+    )
 }
 
 export default function MinhasTarefasView({ 
@@ -30,25 +101,43 @@ export default function MinhasTarefasView({
     listaProjetos, 
     usuarios = [], 
     colunas = [],
-    
     enableCalendarNavigation = true, 
     initialCalendarDate,
     calendarViewMode,
-
     agrupamento = 'PROJETO', 
     esconderFiltroProjeto = false
 }: Props) {
   
   const [view, setView] = useState<'LISTA' | 'QUADRO' | 'CALENDARIO'>('QUADRO')
   const [isPending, startTransition] = useTransition()
-  
   const [selectedTarefa, setSelectedTarefa] = useState<any>(null) 
   const [tarefaParaConcluir, setTarefaParaConcluir] = useState<string | null>(null)
+  const [colunasOrdenadas, setColunasOrdenadas] = useState(colunas)
+
+  useEffect(() => {
+    setColunasOrdenadas((prev: any) => {
+      // Cria uma "impressão digital" baseada apenas nos IDs para comparar
+      const idsAntigos = JSON.stringify(prev.map((c: any) => c.id))
+      const idsNovos = JSON.stringify(colunas.map((c: any) => c.id))
+
+      // Se os IDs forem iguais, retorna o estado anterior (prev).
+      // Isso diz ao React: "Nada mudou, não renderize de novo".
+      if (idsAntigos === idsNovos) {
+        return prev
+      }
+
+      // Se mudou, atualiza com as novas colunas
+      return colunas
+    })
+  }, [colunas])
+
+  // --- REMOVIDO DAQUI: const scrollContainerRef e useAutoScroll ---
+  // Eles foram movidos para o KanbanBoardContainer acima
 
   // Filtros
   const [busca, setBusca] = useState('')
   const [projetoId, setProjetoId] = useState('')
-  const [prioridadeFilter, setPrioridadeFilter] = useState('') // "ALTA", "MEDIA", "BAIXA"
+  const [prioridadeFilter, setPrioridadeFilter] = useState('')
   const [usuarioId, setUsuarioId] = useState('')
   const [statusFilter, setStatusFilter] = useState('TODOS')
 
@@ -60,11 +149,10 @@ export default function MinhasTarefasView({
     return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR');
   }
 
-  // --- CORREÇÃO 1: Cores baseadas no ID (1=Baixa, 2=Média, 3=Alta) ---
   const getPriorityColor = (id: number) => {
-    if(id === 3) return 'bg-red-500/10 text-red-500 border-red-500/20' // Alta
-    if(id === 2) return 'bg-orange-500/10 text-orange-500 border-orange-500/20' // Média
-    return 'bg-green-500/10 text-green-500 border-green-500/20' // Baixa (1)
+    if(id === 3) return 'bg-red-500/10 text-red-500 border-red-500/20'
+    if(id === 2) return 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+    return 'bg-green-500/10 text-green-500 border-green-500/20'
   }
 
   const handleCheck = (tarefaId: string, concluidaAtual: boolean, projetoId: string) => {
@@ -89,24 +177,30 @@ export default function MinhasTarefasView({
     })
   }
 
-  // --- FILTRAGEM ---
+  const trocarColunas = useCallback(async (dragIndex: number, hoverIndex: number) => {
+     const novasColunas = [...colunasOrdenadas]
+     const [colunaRemovida] = novasColunas.splice(dragIndex, 1)
+     novasColunas.splice(hoverIndex, 0, colunaRemovida)
+     setColunasOrdenadas(novasColunas)
+ 
+     const projetoAtualId = listaProjetos[0]?.id
+     if (projetoAtualId) {
+         const idsNaOrdem = novasColunas.map((c: any) => c.id)
+         await reordenarColunas(projetoAtualId, idsNaOrdem)
+     }
+  }, [colunasOrdenadas, listaProjetos])
+
   const tarefasFiltradas = tarefasIniciais.filter(t => {
     const matchTexto = t.titulo.toLowerCase().includes(busca.toLowerCase());
     const matchProjeto = (esconderFiltroProjeto || !projetoId) ? true : t.projeto_id === projetoId;
-    
-    // --- CORREÇÃO 2: Filtro de Prioridade usando IDs ---
-    // Dropdown envia texto, banco tem ID (3=Alta, 2=Média, 1=Baixa)
     let matchPrioridade = true;
     if (prioridadeFilter === 'ALTA') matchPrioridade = t.prioridade_id === 3;
     if (prioridadeFilter === 'MEDIA') matchPrioridade = t.prioridade_id === 2;
     if (prioridadeFilter === 'BAIXA') matchPrioridade = t.prioridade_id === 1;
-
     const matchUsuario = usuarioId ? t.usuario_id === usuarioId : true;
-    
     let matchStatus = true;
     if (statusFilter === 'PENDENTE') matchStatus = !t.concluida;
     if (statusFilter === 'CONCLUIDA') matchStatus = t.concluida;
-    
     return matchTexto && matchProjeto && matchPrioridade && matchUsuario && matchStatus;
   });
 
@@ -114,23 +208,20 @@ export default function MinhasTarefasView({
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-full">
         
-        {/* --- BARRA DE CONTROLE --- */}
+        {/* BARRA DE CONTROLE (Mantida igual) */}
         <div className="bg-surface p-4 rounded-xl border border-border shadow-sm mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center flex-shrink-0">
-          
           <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto flex-1 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">🔍</span>
                   <input type="text" placeholder="Buscar tarefa..." className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-foreground placeholder-text-muted"
                       value={busca} onChange={(e) => setBusca(e.target.value)} />
               </div>
-
               <select className="px-3 py-2 border border-border rounded-lg outline-none bg-surface text-sm text-foreground"
                   value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="TODOS">Todas (Status)</option>
                   <option value="PENDENTE">🕒 Pendentes</option>
                   <option value="CONCLUIDA">✅ Concluídas</option>
               </select>
-
               {!esconderFiltroProjeto && (
                   <select className="px-3 py-2 border border-border rounded-lg outline-none bg-surface text-sm text-foreground"
                       value={projetoId} onChange={(e) => setProjetoId(e.target.value)}>
@@ -138,7 +229,6 @@ export default function MinhasTarefasView({
                       {listaProjetos.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
                   </select>
               )}
-              
               {usuarios.length > 0 && (
                   <select className="px-3 py-2 border border-border rounded-lg outline-none bg-surface text-sm text-foreground"
                       value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
@@ -146,7 +236,6 @@ export default function MinhasTarefasView({
                       {usuarios.map(u => (<option key={u.id} value={u.id}>{u.nome}</option>))}
                   </select>
               )}
-
               <select className="px-3 py-2 border border-border rounded-lg outline-none bg-surface text-sm text-foreground"
                   value={prioridadeFilter} onChange={(e) => setPrioridadeFilter(e.target.value)}>
                   <option value="">Todas Prioridades</option>
@@ -155,7 +244,6 @@ export default function MinhasTarefasView({
                   <option value="BAIXA">Baixa</option>
               </select>
           </div>
-
           <div className="flex bg-surface-highlight p-1 rounded-lg flex-shrink-0 border border-border">
               <button onClick={() => setView('LISTA')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'LISTA' ? 'bg-surface text-indigo-400 shadow-sm' : 'text-text-muted hover:text-foreground'}`}>≣ Lista</button>
               <button onClick={() => setView('QUADRO')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'QUADRO' ? 'bg-surface text-indigo-400 shadow-sm' : 'text-text-muted hover:text-foreground'}`}>☷ Quadro</button>
@@ -163,12 +251,13 @@ export default function MinhasTarefasView({
           </div>
         </div>
 
-        {/* --- CONTEÚDO --- */}
-        <div className="flex-1 overflow-hidden">
+        {/* CONTEÚDO */}
+        <div className="flex-1 overflow-hidden relative">
           
           {/* MODO LISTA */}
           {view === 'LISTA' && (
               <div className="h-full overflow-y-auto bg-surface rounded-xl border border-border shadow-sm custom-scrollbar-thin">
+                  {/* ... Código da tabela mantido ... */}
                   {tarefasFiltradas.length === 0 ? <div className="p-10 text-center text-text-muted">Nenhuma tarefa encontrada.</div> : (
                       <table className="w-full text-left border-collapse">
                           <thead className="bg-surface-highlight sticky top-0 z-10 text-xs uppercase text-text-muted font-semibold">
@@ -193,7 +282,6 @@ export default function MinhasTarefasView({
                                       <td className="p-4 text-sm text-text-muted text-xs"><span className={`px-2 py-1 rounded border ${t.concluida ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>{t.concluida ? 'Concluída' : (t.coluna?.nome || 'Backlog')}</span></td>
                                       <td className="p-4 text-sm text-text-muted">{formatarData(t.dt_vencimento) || '-'}</td>
                                       <td className="p-4 text-center">
-                                        {/* CORREÇÃO 3: Renderizando t.prioridade.nome em vez do objeto inteiro */}
                                         <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${getPriorityColor(t.prioridade_id)}`}>
                                             {t.prioridade?.nome || 'Normal'}
                                         </span>
@@ -209,41 +297,67 @@ export default function MinhasTarefasView({
 
           {/* MODO QUADRO */}
           {view === 'QUADRO' && (
-              <div className="h-full overflow-x-auto overflow-y-hidden flex gap-4 pb-2 custom-scrollbar">
-                  
+              // --- AQUI USAMOS O NOVO COMPONENTE CONTAINER ---
+              <KanbanBoardContainer>
                   {agrupamento === 'PROJETO' ? (
-                      // KANBAN POR PROJETO 
                       listaProjetos
                         .filter(p => (esconderFiltroProjeto || !projetoId) ? true : p.id === projetoId)
                         .map(projeto => {
                             const tarefasDoProjeto = tarefasFiltradas.filter(t => t.projeto_id === projeto.id);
-                            
                             if (tarefasDoProjeto.length === 0 && !projetoId) return null;
-
                             return (
-                                <KanbanColumn key={projeto.id} titulo={projeto.nome} count={tarefasDoProjeto.length}
-                                    tarefas={tarefasDoProjeto} onDrop={() => {}} onCheck={handleCheck} onOpen={setSelectedTarefa} isPending={isPending} tipo="PROJETO" />
+                                <KanbanColumn 
+                                    key={projeto.id} 
+                                    titulo={projeto.nome} 
+                                    count={tarefasDoProjeto.length}
+                                    tarefas={tarefasDoProjeto} 
+                                    onDrop={() => {}} 
+                                    onCheck={handleCheck} 
+                                    onOpen={setSelectedTarefa} 
+                                    isPending={isPending} 
+                                    tipo="PROJETO" 
+                                />
                             )
                         })
                   ) : (
-                      // KANBAN POR COLUNA
                       <>
                         {tarefasFiltradas.some(t => !t.coluna_id) && (
-                            <KanbanColumn titulo="Não Classificado" count={tarefasFiltradas.filter(t => !t.coluna_id).length}
+                            <KanbanColumn 
+                                titulo="Não Classificado" 
+                                count={tarefasFiltradas.filter(t => !t.coluna_id).length}
                                 tarefas={tarefasFiltradas.filter(t => !t.coluna_id)}
-                                onDrop={() => {}} onCheck={handleCheck} onOpen={setSelectedTarefa} isPending={isPending} isWarning tipo="COLUNA" />
+                                onDrop={() => {}} 
+                                onCheck={handleCheck} 
+                                onOpen={setSelectedTarefa} 
+                                isPending={isPending} 
+                                isWarning 
+                                tipo="COLUNA" 
+                            />
                         )}
-                        {colunas.map(coluna => (
-                            <KanbanColumn key={coluna.id} titulo={coluna.nome} count={tarefasFiltradas.filter(t => t.coluna_id === coluna.id).length}
+
+                        {colunasOrdenadas.map((coluna: any, index: number) => (
+                            <KanbanColumn 
+                                key={coluna.id} 
+                                id={coluna.id}
+                                index={index}
+                                onTrocarColuna={trocarColunas}
+                                titulo={coluna.nome} 
+                                count={tarefasFiltradas.filter(t => t.coluna_id === coluna.id).length}
                                 tarefas={tarefasFiltradas.filter(t => t.coluna_id === coluna.id)}
                                 onDrop={(itemId: string) => {
                                     const tarefaMovida = tarefasFiltradas.find(t => t.id === itemId)
                                     if (tarefaMovida) startTransition(() => moverTarefaDeColuna(itemId, coluna.id, tarefaMovida.projeto_id))
-                                }} onCheck={handleCheck} onOpen={setSelectedTarefa} isPending={isPending} tipo="COLUNA" dropId={coluna.id} />
+                                }} 
+                                onCheck={handleCheck} 
+                                onOpen={setSelectedTarefa} 
+                                isPending={isPending} 
+                                tipo="COLUNA" 
+                                dropId={coluna.id} 
+                            />
                         ))}
                       </>
                   )}
-              </div>
+              </KanbanBoardContainer>
           )}
 
           {/* MODO CALENDÁRIO */}
@@ -263,7 +377,6 @@ export default function MinhasTarefasView({
         
         {/* MODAIS */}
         {selectedTarefa && <ModalTarefa tarefa={selectedTarefa} isOpen={!!selectedTarefa} onClose={() => setSelectedTarefa(null)} usuarios={usuarios} projetos={listaProjetos} />}
-        
         {tarefaParaConcluir && <ModalConclusao isOpen={!!tarefaParaConcluir} onClose={() => setTarefaParaConcluir(null)} onConfirm={confirmarConclusao} isSaving={isPending} />}
       
       </div>
@@ -271,23 +384,72 @@ export default function MinhasTarefasView({
   )
 }
 
-// --- SUB-COMPONENTES ---
+function KanbanColumn({ 
+    id, index, onTrocarColuna,
+    titulo, count, tarefas, onDrop, onCheck, onOpen, isPending, isWarning, tipo, dropId 
+}: any) {
+    
+    const ref = useRef<HTMLDivElement>(null)
 
-function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPending, isWarning, tipo, dropId }: any) {
-    const [{ isOver }, dropRef] = useDrop(() => ({
-        accept: 'KANBAN_TASK',
+    // DRAG
+    const [{ isDraggingColumn }, dragColumn] = useDrag({
+        type: ItemTypes.COLUMN,
+        item: { index },
+        canDrag: () => tipo === 'COLUNA' && !!onTrocarColuna,
+        collect: (monitor) => ({ isDraggingColumn: monitor.isDragging() }),
+    }, [index, tipo, onTrocarColuna])
+
+    // DROP
+    const [{ isOverColumn }, dropColumn] = useDrop({
+        accept: ItemTypes.COLUMN,
+        drop: (item: { index: number }) => {
+            if (onTrocarColuna) {
+                const dragIndex = item.index
+                const hoverIndex = index
+                if (dragIndex === hoverIndex) return
+                onTrocarColuna(dragIndex, hoverIndex)
+                item.index = hoverIndex
+            }
+        },
+        collect: (monitor) => ({ isOverColumn: monitor.isOver() }),
+    }, [index, onTrocarColuna])
+
+    dropColumn(ref)
+    
+    // Drop Tarefa
+    const [{ isOverTask }, dropTask] = useDrop(() => ({
+        accept: ItemTypes.TASK,
         drop: (item: { id: string }) => { if (tipo === 'COLUNA') onDrop(item.id) },
-        collect: (monitor) => ({ isOver: monitor.isOver() }),
+        collect: (monitor) => ({ isOverTask: monitor.isOver() }),
         canDrop: () => tipo === 'COLUNA'
     }), [dropId])
 
+    const isTarget = isOverColumn && tipo === 'COLUNA'
+
     return (
-        <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`w-80 flex-shrink-0 flex flex-col bg-surface rounded-xl border border-border max-h-full transition-colors ${isOver ? 'bg-indigo-500/10 border-indigo-500/30' : ''} ${isWarning ? 'bg-red-500/10 border-red-500/20' : ''}`}>
-            <div className={`p-3 font-bold text-foreground text-sm border-b border-border flex justify-between rounded-t-xl ${isWarning ? 'text-red-400' : 'bg-surface'}`}>
-                <span className="truncate" title={titulo}>{titulo}</span>
+        <div 
+            ref={ref} 
+            className={`w-80 flex-shrink-0 flex flex-col bg-surface rounded-xl border max-h-full transition-all 
+            ${isDraggingColumn ? 'opacity-50 border-dashed border-gray-400' : 'opacity-100'} 
+            ${isTarget ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50' : 'border-border'}
+            ${isOverTask ? 'bg-indigo-500/10 border-indigo-500/30' : ''} 
+            ${isWarning ? 'bg-red-500/10 border-red-500/20' : ''}
+            `}
+        >
+            <div 
+                ref={dragColumn as unknown as React.LegacyRef<HTMLDivElement>}
+                className={`p-3 font-bold text-foreground text-sm border-b border-border flex justify-between rounded-t-xl 
+                ${isWarning ? 'text-red-400' : 'bg-surface'} 
+                ${onTrocarColuna ? 'cursor-grab active:cursor-grabbing hover:bg-gray-50' : ''}`}
+            >
+                <div className="flex items-center gap-2">
+                    {onTrocarColuna && <span className="text-gray-300 text-xs">⋮⋮</span>}
+                    <span className="truncate" title={titulo}>{titulo}</span>
+                </div>
                 <span className="bg-surface-highlight text-text-muted px-2 rounded-full text-xs flex items-center border border-border">{count}</span>
             </div>
-            <div className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar-thin">
+
+            <div ref={dropTask as unknown as React.LegacyRef<HTMLDivElement>} className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar-thin min-h-[100px]">
                 {tarefas.length === 0 ? <div className="text-center text-text-muted text-xs py-4 italic">Vazio</div> : tarefas.map((t: any) => (
                         <DraggableKanbanCard key={t.id} tarefa={t} onCheck={onCheck} onOpen={onOpen} isPending={isPending} />
                 ))}
@@ -298,7 +460,7 @@ function KanbanColumn({ titulo, count, tarefas, onDrop, onCheck, onOpen, isPendi
 
 function DraggableKanbanCard({ tarefa, onCheck, onOpen, isPending }: any) {
     const [{ isDragging }, dragRef] = useDrag(() => ({
-        type: 'KANBAN_TASK',
+        type: ItemTypes.TASK, 
         item: { id: tarefa.id },
         collect: (monitor) => ({ isDragging: monitor.isDragging() }),
     }), [tarefa.id])
@@ -309,7 +471,6 @@ function DraggableKanbanCard({ tarefa, onCheck, onOpen, isPending }: any) {
         <div ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>} onClick={() => onOpen(tarefa)}
             className={`bg-surface p-3 rounded-lg border border-border shadow-sm hover:border-indigo-500/50 hover:shadow-md transition-all cursor-default group relative ${isPending ? 'opacity-50' : ''} ${tarefa.concluida ? 'opacity-60 bg-surface-highlight/20' : ''} ${isDragging ? 'opacity-30' : ''}`}>
             
-            {/* CORREÇÃO 4: Lógica de cor usando prioridade_id */}
             <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${tarefa.prioridade_id === 3 ? 'bg-red-500' : (tarefa.prioridade_id === 2 ? 'bg-orange-500' : 'bg-green-500')}`}></div>
             
             <div className="pl-2">

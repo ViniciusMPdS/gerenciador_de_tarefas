@@ -432,3 +432,25 @@ export async function toggleStatusUsuario(usuarioAlvoId: string) {
 
   revalidatePath('/configuracoes/usuarios')
 }
+
+export async function reordenarColunas(projetoId: string, colunasIds: string[]) {
+  try {
+    // Transaction garante que todas atualizem ou nenhuma atualize
+    await prisma.$transaction(
+      colunasIds.map((colunaId, index) => 
+        prisma.projetoColuna.update({
+          where: {
+            projeto_id_coluna_id: {
+              projeto_id: projetoId,
+              coluna_id: colunaId
+            }
+          },
+          data: { ordem: index + 1 } // Salva 1, 2, 3...
+        })
+      )
+    )
+    revalidatePath(`/projeto/${projetoId}`)
+  } catch (error) {
+    console.error("Erro ao reordenar colunas:", error)
+  }
+}
