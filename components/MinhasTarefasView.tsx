@@ -107,7 +107,10 @@ export default function MinhasTarefasView({
     agrupamento = 'PROJETO', 
     esconderFiltroProjeto = false
 }: Props) {
-  
+  const getColunaId = (t: any) => {
+      // Tenta pegar o ID direto, ou de dentro do objeto coluna, ou retorna null
+      return t.coluna_id || t.coluna?.id || null
+  }
   const [view, setView] = useState<'LISTA' | 'QUADRO' | 'CALENDARIO'>('QUADRO')
   const [isPending, startTransition] = useTransition()
   const [selectedTarefa, setSelectedTarefa] = useState<any>(null) 
@@ -321,11 +324,11 @@ export default function MinhasTarefasView({
                         })
                   ) : (
                       <>
-                        {tarefasFiltradas.some(t => !t.coluna_id) && (
+                        {tarefasFiltradas.some(t => !getColunaId(t)) && (
                             <KanbanColumn 
                                 titulo="Não Classificado" 
-                                count={tarefasFiltradas.filter(t => !t.coluna_id).length}
-                                tarefas={tarefasFiltradas.filter(t => !t.coluna_id)}
+                                count={tarefasFiltradas.filter(t => !getColunaId(t)).length}
+                                tarefas={tarefasFiltradas.filter(t => !getColunaId(t))}
                                 onDrop={() => {}} 
                                 onCheck={handleCheck} 
                                 onOpen={setSelectedTarefa} 
@@ -335,6 +338,7 @@ export default function MinhasTarefasView({
                             />
                         )}
 
+                        {/* COLUNAS NORMAIS */}
                         {colunasOrdenadas.map((coluna: any, index: number) => (
                             <KanbanColumn 
                                 key={coluna.id} 
@@ -342,11 +346,16 @@ export default function MinhasTarefasView({
                                 index={index}
                                 onTrocarColuna={trocarColunas}
                                 titulo={coluna.nome} 
-                                count={tarefasFiltradas.filter(t => t.coluna_id === coluna.id).length}
-                                tarefas={tarefasFiltradas.filter(t => t.coluna_id === coluna.id)}
+                                // AQUI ESTÁ A CORREÇÃO: Usando getColunaId(t)
+                                count={tarefasFiltradas.filter(t => getColunaId(t) === coluna.id).length}
+                                tarefas={tarefasFiltradas.filter(t => getColunaId(t) === coluna.id)}
+                                
                                 onDrop={(itemId: string) => {
                                     const tarefaMovida = tarefasFiltradas.find(t => t.id === itemId)
-                                    if (tarefaMovida) startTransition(() => moverTarefaDeColuna(itemId, coluna.id, tarefaMovida.projeto_id))
+                                    // Verifica se tarefa e projeto existem antes de mover
+                                    if (tarefaMovida && tarefaMovida.projeto_id) {
+                                        startTransition(() => moverTarefaDeColuna(itemId, coluna.id, tarefaMovida.projeto_id))
+                                    }
                                 }} 
                                 onCheck={handleCheck} 
                                 onOpen={setSelectedTarefa} 

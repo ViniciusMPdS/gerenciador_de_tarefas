@@ -22,10 +22,18 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
   const [dificuldadeId, setDificuldadeId] = useState('3')
   const [usuarioId, setUsuarioId] = useState('')
   const [dtVencimento, setDtVencimento] = useState('')
+  
+  // 1. Estado da Coluna
+  const [colunaId, setColunaId] = useState(tarefa?.coluna_id || '')
 
   // Comentários
   const [novoComentario, setNovoComentario] = useState('')
   const [listaComentarios, setListaComentarios] = useState<any[]>([])
+
+  // 2. LÓGICA DE COLUNAS DISPONÍVEIS (Calculada a cada render para estar disponível no dropdown)
+  const projetoAtual = projetos.find((p: any) => p.id === tarefa?.projeto_id)
+  // Trata tanto se vier via 'include: { colunas: { include: { coluna: true } } }' quanto direto
+  const colunasDisponiveis = projetoAtual?.colunas?.map((c: any) => c.coluna || c) || []
 
   // Atualiza estados quando abre o modal
   useEffect(() => {
@@ -35,6 +43,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         setPrioridadeId(String(tarefa.prioridade_id || '2'))
         setDificuldadeId(String(tarefa.dificuldade_id || '3'))
         setUsuarioId(tarefa.usuario_id || '')
+        setColunaId(tarefa.coluna_id || '')
 
         // Ordenar comentários (Mais recentes primeiro)
         const comentariosOrdenados = (tarefa.comentarios || []).sort((a: any, b: any) => 
@@ -69,7 +78,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
 
   const handleSalvar = () => {
     startTransition(async () => {
-      // Ajuste Fuso Horário (Meio-dia)
+      // Ajuste Fuso Horário
       let dataIso = null
       if (dtVencimento) {
           const d = new Date(dtVencimento)
@@ -83,7 +92,8 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         dt_vencimento: dataIso,
         prioridade_id: Number(prioridadeId), 
         dificuldade_id: Number(dificuldadeId),
-        usuario_id: usuarioId || null
+        usuario_id: usuarioId || null,
+        coluna_id: colunaId // <--- 3. ENVIANDO A NOVA COLUNA
       }, tarefa.projeto_id)
       
       setModoEdicao(false)
@@ -110,12 +120,9 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
           usuario: { nome: 'Eu' } 
       }
       
-      // Adiciona no topo
       setListaComentarios([tempComentario, ...listaComentarios])
-      
       const textoEnviar = novoComentario
       setNovoComentario('')
-
       await adicionarComentario(tarefa.id, textoEnviar)
   }
 
@@ -123,7 +130,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
-      {/* VOLTANDO AO LAYOUT ORIGINAL (max-w-2xl) */}
       <div className="relative bg-surface w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-border animate-in zoom-in-95 duration-200">
         
         {/* HEADER */}
@@ -151,6 +157,31 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
             {/* GRID DE METADADOS */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-surface-highlight/10 p-4 rounded-lg border border-border">
                 
+                {/* --- CAMPO NOVO: ETAPA / COLUNA --- */}
+                <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Etapa Atual</label>
+                    {modoEdicao ? (
+                        <select 
+                            value={colunaId} 
+                            onChange={e => setColunaId(e.target.value)} 
+                            className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground"
+                        >
+                            <option value="">Não Classificado</option>
+                            {colunasDisponiveis.map((col: any) => (
+                                <option key={col.id} value={col.id}>
+                                    {col.nome}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div className="flex items-center gap-1">
+                            <span className="text-sm font-medium text-foreground">
+                                {colunasDisponiveis.find((c: any) => c.id === colunaId)?.nome || 'Não Classificado'}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
                 {/* Data (Editável) */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Vencimento</label>
@@ -163,7 +194,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                          />
                     ) : (
                         <div className="flex items-center gap-1 text-sm font-medium text-foreground">
-                            <span>📅</span>
                             <span>{formatarDataExibicao(tarefa.dt_vencimento)}</span>
                         </div>
                     )}
@@ -183,22 +213,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                             ${tarefa.prioridade_id === 3 ? 'bg-red-500/10 text-red-500 border-red-500/20' : (tarefa.prioridade_id === 2 ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20')}`}>
                             {tarefa.prioridade?.nome || 'Normal'}
                         </span>
-                    )}
-                </div>
-
-                {/* Dificuldade */}
-                <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Dificuldade</label>
-                    {modoEdicao ? (
-                        <select value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)} className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground">
-                            <option value="1">1 - Muito Fácil</option>
-                            <option value="2">2 - Fácil</option>
-                            <option value="3">3 - Média</option>
-                            <option value="4">4 - Difícil</option>
-                            <option value="5">5 - Muito Difícil</option>
-                        </select>
-                    ) : (
-                        <span className="text-sm font-medium text-foreground">{tarefa.dificuldade?.nome || 'Média'}</span>
                     )}
                 </div>
 
@@ -223,6 +237,22 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                         </div>
                     )}
                 </div>
+
+                 {/* Dificuldade (Opcional - Movi para baixo ou pode remover se faltar espaço, mas deixei aqui caso queira manter) */}
+                 <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Dificuldade</label>
+                    {modoEdicao ? (
+                        <select value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)} className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground">
+                            <option value="1">1 - Muito Fácil</option>
+                            <option value="2">2 - Fácil</option>
+                            <option value="3">3 - Média</option>
+                            <option value="4">4 - Difícil</option>
+                            <option value="5">5 - Muito Difícil</option>
+                        </select>
+                    ) : (
+                        <span className="text-sm font-medium text-foreground">{tarefa.dificuldade?.nome || 'Média'}</span>
+                    )}
+                </div>
             </div>
 
             {/* DESCRIÇÃO */}
@@ -242,7 +272,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 )}
             </div>
 
-            {/* COMENTÁRIOS (Sempre visível, abaixo da descrição) */}
+            {/* COMENTÁRIOS */}
             <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                     💬 Comentários <span className="bg-surface-highlight px-2 py-0.5 rounded-full text-xs text-text-muted">{listaComentarios.length}</span>
@@ -265,7 +295,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                                     </div>
                                     <span className="text-[10px] text-text-muted">{new Date(c.dt_insert).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' })}</span>
                                 </div>
-                                {/* CORREÇÃO AQUI: QUEBRA DE LINHA FORÇADA */}
                                 <p className="text-sm text-gray-400 ml-6 whitespace-pre-wrap break-words">{c.texto}</p>
                             </div>
                         ))

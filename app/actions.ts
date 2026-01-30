@@ -106,6 +106,7 @@ interface AtualizarTarefaDTO {
   prioridade_id: number
   dificuldade_id: number
   usuario_id: string | null
+  coluna_id?: string
 }
 
 // ATUALIZADO: Aceita objeto com snake_case e tipos corretos
@@ -125,7 +126,8 @@ export async function atualizarTarefa(
       prioridade_id: data.prioridade_id,
       dificuldade_id: data.dificuldade_id,
       usuario_id: data.usuario_id || null, 
-      dt_vencimento: data.dt_vencimento
+      dt_vencimento: data.dt_vencimento,
+      coluna_id: data.coluna_id // <--- SALVA NO BANCO
     }
   })
 

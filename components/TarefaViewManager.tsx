@@ -110,11 +110,12 @@ function KanbanBoardContent({
 interface Props {
   tarefas: any[]
   usuarios: any[]
+  projetos: any[]
   todasColunas?: any[] 
   mostrarVazias?: boolean
 }
 
-export default function TarefaViewManager({ tarefas, usuarios, todasColunas = [], mostrarVazias = false }: Props) {
+export default function TarefaViewManager({ tarefas, usuarios, projetos, todasColunas = [], mostrarVazias = false }: Props) {
   const [view, setView] = useState<'LISTA' | 'QUADRO'>('QUADRO')
   const [selectedTarefa, setSelectedTarefa] = useState<any>(null)
 
@@ -222,7 +223,15 @@ export default function TarefaViewManager({ tarefas, usuarios, todasColunas = []
         </div>
       )}
 
-      {selectedTarefa && <ModalTarefa tarefa={selectedTarefa} isOpen={!!selectedTarefa} onClose={() => setSelectedTarefa(null)} usuarios={usuarios} projetos={[]} />}
+      {selectedTarefa && (
+          <ModalTarefa 
+              tarefa={selectedTarefa} 
+              isOpen={!!selectedTarefa} 
+              onClose={() => setSelectedTarefa(null)} 
+              usuarios={usuarios} 
+              projetos={projetos}
+          />
+      )}
     </div>
   )
 }
