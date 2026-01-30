@@ -80,7 +80,8 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
               <SidebarLink href="/projetos" icon="📂" label="Projetos" isOpen={isSidebarOpen} active={pathname === '/projetos'} />
               <SidebarLink href="/minhas-tarefas" icon="✅" label="Tarefas" isOpen={isSidebarOpen} active={pathname === '/minhas-tarefas'} />
               <SidebarLink href="/sprint" icon="🚀" label="Sprint" isOpen={isSidebarOpen} active={pathname === '/sprint'} />
-              <SidebarLink href="/configuracoes/colunas" icon="📊" label="Etapas" isOpen={isSidebarOpen} active={pathname?.startsWith('/configuracoes/colunas')} />
+              <SidebarLink href="/dashboards" icon="📊" label="Dashboards" isOpen={isSidebarOpen} active={pathname === '/dashboards'} />
+              <SidebarLink href="/configuracoes/colunas" icon="🗂️" label="Etapas" isOpen={isSidebarOpen} active={pathname?.startsWith('/configuracoes/colunas')} />
             </div>
 
             <div className={`border-t border-white/5 my-2 ${!isSidebarOpen && 'border-transparent'}`}></div>

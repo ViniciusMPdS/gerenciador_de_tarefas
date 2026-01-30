@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import BtnExcluirColuna from '@/components/BtnExcluirColuna' // <--- IMPORTANTE
+import ItemColuna from '@/components/ItemColuna' // <--- IMPORTAR O NOVO COMPONENTE
 
 // --- ACTIONS ---
 async function criarColuna(formData: FormData) {
@@ -16,15 +16,26 @@ async function criarColuna(formData: FormData) {
   revalidatePath('/configuracoes/colunas')
 }
 
+// --- NOVA ACTION DE ATUALIZAR ---
+async function atualizarNomeColuna(id: string, novoNome: string) {
+  'use server'
+  if (!id || !novoNome) return
+
+  await prisma.coluna.update({
+    where: { id },
+    data: { nome: novoNome }
+  })
+  revalidatePath('/configuracoes/colunas')
+}
+
 async function excluirColuna(formData: FormData) {
   'use server'
   const id = formData.get('id') as string
-  
   try {
     await prisma.coluna.delete({ where: { id } })
     revalidatePath('/configuracoes/colunas')
   } catch (error) {
-    console.log("Erro ao excluir (provavelmente tem vinculos)")
+    console.log("Erro ao excluir")
   }
 }
 
@@ -41,18 +52,18 @@ export default async function GerenciarColunasPage() {
       <header className="mb-8 border-b border-border pb-6">
         <h1 className="text-3xl font-bold text-foreground">Gerenciar Colunas</h1>
         <p className="text-gray-500 mt-2">
-          Defina as etapas (seções) padrões que estarão disponíveis para os projetos.
+          Clique no nome de uma coluna para editá-la.
         </p>
       </header>
 
-      {/* Formulário de Criação */}
+      {/* Formulário de Criação (Mantido Igual) */}
       <div className="bg-surface p-6 rounded-xl border border-border shadow-sm mb-8">
         <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Adicionar Nova Coluna</h2>
         <form action={criarColuna} className="flex gap-4">
           <input type="hidden" name="workspaceId" value={workspace.id} />
           <input 
             name="nome" 
-            placeholder="Nome da coluna (Ex: Validação, Arquivado...)" 
+            placeholder="Nome da coluna..." 
             className="flex-1 border border-gray-300 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-rose-500"
             required
             autoComplete="off"
@@ -63,26 +74,18 @@ export default async function GerenciarColunasPage() {
         </form>
       </div>
 
-      {/* Lista de Colunas */}
+      {/* Lista de Colunas (Atualizada) */}
       <div>
         <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Colunas Existentes ({workspace.colunas.length})</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {workspace.colunas.map(coluna => (
-            <div key={coluna.id} className="flex items-center justify-between p-4 bg-surface border border-border rounded-lg group hover:border-indigo-300 transition-colors shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-surface/50 flex items-center justify-center text-gray-500 text-xs font-bold border border-gray-100">
-                  {coluna.nome.substring(0, 1).toUpperCase()}
-                </span>
-                <span className="font-medium text-foreground">{coluna.nome}</span>
-              </div>
-              
-              <form action={excluirColuna}>
-                <input type="hidden" name="id" value={coluna.id} />
-                {/* Substituímos o <button> direto pelo Componente Cliente */}
-                <BtnExcluirColuna />
-              </form>
-            </div>
+            <ItemColuna 
+                key={coluna.id}
+                coluna={coluna}
+                atualizarAction={atualizarNomeColuna}
+                excluirAction={excluirColuna}
+            />
           ))}
         </div>
       </div>
