@@ -89,6 +89,13 @@ model ProjetoColuna {
   @@id([projeto_id, coluna_id])
 }
 
+enum Recorrencia {
+  NAO
+  DIARIAMENTE
+  SEMANALMENTE
+  MENSALMENTE
+}
+
 model Tarefa {
   id            String    @id @default(cuid())
   titulo        String
@@ -99,7 +106,6 @@ model Tarefa {
   dt_insert     DateTime  @default(now())
   dt_update   DateTime @updatedAt @default(now())
 
-  // MUDANÇA AQUI: Agora usamos IDs e relações
   prioridade_id Int
   prioridade    OpcaoPrioridade @relation(fields: [prioridade_id], references: [id])
 
@@ -116,6 +122,8 @@ model Tarefa {
   usuario       Usuario?  @relation(fields: [usuario_id], references: [id])
 
   comentarios   Comentario[]
+
+  recorrencia       Recorrencia @default(NAO)
 }
 
 // --- NOVAS TABELAS AUXILIARES ---
@@ -142,5 +150,3 @@ model Comentario {
   dt_insert  DateTime @default(now())
   dt_update   DateTime @updatedAt @default(now())
 }
-
-// (Removi a tabela Equipe pois estava sem uso no momento, para simplificar)

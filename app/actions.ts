@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { auth, signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import bcrypt from 'bcryptjs'
+import { Recorrencia } from '@prisma/client' // <--- IMPORTANTE
 
 // --- AUTENTICAÇÃO ---
 export async function authenticate(
@@ -61,6 +62,7 @@ interface CriarTarefaDTO {
   usuario_id: string | null
   prioridade_id: number
   dificuldade_id: number
+  recorrencia?: Recorrencia // <--- NOVO
 }
 
 // ATUALIZADO: Aceita objeto JSON em vez de FormData
@@ -86,10 +88,11 @@ export async function criarTarefa(data: CriarTarefaDTO) {
       prioridade_id: data.prioridade_id,
       dificuldade_id: data.dificuldade_id,
       concluida: false,
-      coluna_id: colunaId || undefined, // undefined deixa o Prisma decidir (se for opcional)
+      coluna_id: colunaId || undefined,
       projeto_id: data.projeto_id,
       usuario_id: data.usuario_id || null,
-      dt_vencimento: data.dt_vencimento
+      dt_vencimento: data.dt_vencimento,
+      recorrencia: data.recorrencia || 'NAO' // <--- SALVA NO BANCO
     },
   })
 
@@ -107,6 +110,7 @@ interface AtualizarTarefaDTO {
   dificuldade_id: number
   usuario_id: string | null
   coluna_id?: string
+  recorrencia?: Recorrencia // <--- NOVO
 }
 
 // ATUALIZADO: Aceita objeto com snake_case e tipos corretos
@@ -127,7 +131,8 @@ export async function atualizarTarefa(
       dificuldade_id: data.dificuldade_id,
       usuario_id: data.usuario_id || null, 
       dt_vencimento: data.dt_vencimento,
-      coluna_id: data.coluna_id // <--- SALVA NO BANCO
+      coluna_id: data.coluna_id,
+      recorrencia: data.recorrencia // <--- SALVA NO BANCO
     }
   })
 
@@ -137,6 +142,9 @@ export async function atualizarTarefa(
 }
 
 export async function concluirTarefaComComentario(tarefaId: string, comentario: string, projetoId: string, usuarioId: string) {
+  // Busca a tarefa antes para verificar recorrência
+  const tarefaOriginal = await prisma.tarefa.findUnique({ where: { id: tarefaId } });
+
   await prisma.tarefa.update({
     where: { id: tarefaId },
     data: { concluida: true, dt_conclusao: new Date() }
@@ -147,6 +155,31 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
       data: { texto: `🏁 ENCERRAMENTO: ${comentario}`, tarefa_id: tarefaId, usuario_id: usuarioId }
     })
   }
+
+  // --- LÓGICA DE RECORRÊNCIA ---
+  if (tarefaOriginal && tarefaOriginal.recorrencia !== 'NAO' && tarefaOriginal.dt_vencimento) {
+      const novaData = new Date(tarefaOriginal.dt_vencimento)
+      
+      if (tarefaOriginal.recorrencia === 'DIARIAMENTE') novaData.setDate(novaData.getDate() + 1)
+      else if (tarefaOriginal.recorrencia === 'SEMANALMENTE') novaData.setDate(novaData.getDate() + 7)
+      else if (tarefaOriginal.recorrencia === 'MENSALMENTE') novaData.setMonth(novaData.getMonth() + 1)
+
+      await prisma.tarefa.create({
+          data: {
+              titulo: tarefaOriginal.titulo,
+              descricao: tarefaOriginal.descricao,
+              projeto_id: tarefaOriginal.projeto_id,
+              usuario_id: tarefaOriginal.usuario_id,
+              prioridade_id: tarefaOriginal.prioridade_id,
+              dificuldade_id: tarefaOriginal.dificuldade_id,
+              coluna_id: tarefaOriginal.coluna_id,
+              recorrencia: tarefaOriginal.recorrencia, // A nova tarefa herda a recorrência
+              dt_vencimento: novaData,
+              concluida: false
+          }
+      })
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
@@ -217,10 +250,36 @@ export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string
 }
 
 export async function toggleConcluida(tarefaId: string, isConcluida: boolean, projetoId: string) {
-  await prisma.tarefa.update({
+  // 1. Atualiza o status
+  const tarefaAtualizada = await prisma.tarefa.update({
     where: { id: tarefaId },
     data: { concluida: isConcluida, dt_conclusao: isConcluida ? new Date() : null }
   })
+
+  // 2. --- LÓGICA DE RECORRÊNCIA ---
+  if (isConcluida && tarefaAtualizada.recorrencia !== 'NAO' && tarefaAtualizada.dt_vencimento) {
+      const novaData = new Date(tarefaAtualizada.dt_vencimento)
+      
+      if (tarefaAtualizada.recorrencia === 'DIARIAMENTE') novaData.setDate(novaData.getDate() + 1)
+      else if (tarefaAtualizada.recorrencia === 'SEMANALMENTE') novaData.setDate(novaData.getDate() + 7)
+      else if (tarefaAtualizada.recorrencia === 'MENSALMENTE') novaData.setMonth(novaData.getMonth() + 1)
+
+      await prisma.tarefa.create({
+          data: {
+              titulo: tarefaAtualizada.titulo,
+              descricao: tarefaAtualizada.descricao,
+              projeto_id: tarefaAtualizada.projeto_id,
+              usuario_id: tarefaAtualizada.usuario_id,
+              prioridade_id: tarefaAtualizada.prioridade_id,
+              dificuldade_id: tarefaAtualizada.dificuldade_id,
+              coluna_id: tarefaAtualizada.coluna_id,
+              recorrencia: tarefaAtualizada.recorrencia,
+              dt_vencimento: novaData,
+              concluida: false
+          }
+      })
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)

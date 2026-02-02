@@ -18,9 +18,12 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
   const [descricao, setDescricao] = useState('')
   const [dtVencimento, setDtVencimento] = useState('')
   const [colunaId, setColunaId] = useState(colunas.length > 0 ? colunas[0].id : '')
-  const [prioridadeId, setPrioridadeId] = useState('2') // "2" (String) -> será convertido para 2 (Int)
-  const [dificuldadeId, setDificuldadeId] = useState('3') // "3" (String) -> será convertido para 3 (Int)
+  const [prioridadeId, setPrioridadeId] = useState('2') 
+  const [dificuldadeId, setDificuldadeId] = useState('3') 
   const [usuarioId, setUsuarioId] = useState('')
+  
+  // 1. Estado da Recorrência
+  const [recorrencia, setRecorrencia] = useState('NAO')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -31,9 +34,8 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
     // Ajuste Fuso Horário (Meio-dia)
     let dataIso = null
     if (dtVencimento) {
-        const d = new Date(dtVencimento)
-        d.setHours(12, 0, 0, 0) 
-        dataIso = d
+        const [ano, mes, dia] = dtVencimento.split('-').map(Number)
+        dataIso= new Date(ano, mes-1, dia, 12, 0, 0)
     }
 
     // Chama a action passando os dados tipados corretamente
@@ -43,10 +45,10 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
         dt_vencimento: dataIso,
         projeto_id: projetoId,
         coluna_id: colunaId,
-        // CONVERSÃO PARA INTEIRO
         prioridade_id: Number(prioridadeId),
         dificuldade_id: Number(dificuldadeId),
-        usuario_id: usuarioId
+        usuario_id: usuarioId,
+        recorrencia: (recorrencia as any) // <--- ENVIA A RECORRÊNCIA (Cast any se enum não existir no front ainda)
     })
 
     setIsSaving(false)
@@ -56,6 +58,7 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
     setTitulo('')
     setDescricao('')
     setDtVencimento('')
+    setRecorrencia('NAO')
   }
 
   return (
@@ -128,8 +131,9 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                 </div>
               </div>
 
+              {/* --- NOVA LINHA: PRIORIDADE E RECORRÊNCIA --- */}
               <div className="grid grid-cols-2 gap-4">
-                 {/* PRIORIDADE (Valores 1, 2, 3 que existem no banco) */}
+                 {/* PRIORIDADE */}
                  <div>
                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Prioridade</label>
                    <select 
@@ -142,31 +146,46 @@ export default function ModalCriarTarefa({ projetoId, colunas, usuarios }: Props
                    </select>
                 </div>
 
-                {/* DIFICULDADE (Valores 1-5 que existem no banco) */}
+                {/* RECORRÊNCIA (NOVO) */}
                 <div>
-                   <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Dificuldade</label>
+                   <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Repetir</label>
                    <select 
-                      value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)}
+                      value={recorrencia} onChange={e => setRecorrencia(e.target.value)}
                       className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
                    >
-                      <option value="1">1 - Muito Fácil</option>
-                      <option value="2">2 - Fácil</option>
-                      <option value="3">3 - Média</option>
-                      <option value="4">4 - Difícil</option>
-                      <option value="5">5 - Muito Difícil</option>
+                      <option value="NAO">Nunca</option>
+                      <option value="DIARIAMENTE">Diariamente</option>
+                      <option value="SEMANALMENTE">Semanalmente</option>
+                      <option value="MENSALMENTE">Mensalmente</option>
                    </select>
                 </div>
               </div>
 
-              {/* RESPONSÁVEL */}
-              <div>
-                 <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Responsável</label>
-                 <select value={usuarioId} onChange={e => setUsuarioId(e.target.value)} required className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <option value="">Selecione...</option>
-                    {usuarios.map(u => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                 </select>
+              {/* DIFICULDADE E RESPONSÁVEL */}
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Dificuldade</label>
+                    <select 
+                        value={dificuldadeId} onChange={e => setDificuldadeId(e.target.value)}
+                        className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                        <option value="1">1 - Muito Fácil</option>
+                        <option value="2">2 - Fácil</option>
+                        <option value="3">3 - Média</option>
+                        <option value="4">4 - Difícil</option>
+                        <option value="5">5 - Muito Difícil</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-text-muted uppercase mb-1">Responsável</label>
+                    <select value={usuarioId} onChange={e => setUsuarioId(e.target.value)} required className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-foreground focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="">Selecione...</option>
+                        {usuarios.map(u => (
+                        <option key={u.id} value={u.id}>{u.nome}</option>
+                        ))}
+                    </select>
+                  </div>
               </div>
 
               <div className="flex justify-end pt-4 gap-2 border-t border-border mt-2">
