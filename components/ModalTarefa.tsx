@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { atualizarTarefa, excluirTarefa, adicionarComentario } from '@/app/actions' 
+// import DatePicker from './DatePicker' // (Caso estivesse usando, mas mantive o input nativo conforme seu pedido)
 
 interface Props {
   tarefa: any
@@ -25,14 +26,16 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
   
   // 1. Estado da Coluna
   const [colunaId, setColunaId] = useState(tarefa?.coluna_id || '')
+  
+  // 2. Estado da Recorrência
+  const [recorrencia, setRecorrencia] = useState(tarefa?.recorrencia || 'NAO')
 
   // Comentários
   const [novoComentario, setNovoComentario] = useState('')
   const [listaComentarios, setListaComentarios] = useState<any[]>([])
 
-  // 2. LÓGICA DE COLUNAS DISPONÍVEIS (Calculada a cada render para estar disponível no dropdown)
+  // 3. LÓGICA DE COLUNAS DISPONÍVEIS
   const projetoAtual = projetos.find((p: any) => p.id === tarefa?.projeto_id)
-  // Trata tanto se vier via 'include: { colunas: { include: { coluna: true } } }' quanto direto
   const colunasDisponiveis = projetoAtual?.colunas?.map((c: any) => c.coluna || c) || []
 
   // Atualiza estados quando abre o modal
@@ -44,8 +47,8 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         setDificuldadeId(String(tarefa.dificuldade_id || '3'))
         setUsuarioId(tarefa.usuario_id || '')
         setColunaId(tarefa.coluna_id || '')
+        setRecorrencia(tarefa.recorrencia || 'NAO') // <--- Inicializa
 
-        // Ordenar comentários (Mais recentes primeiro)
         const comentariosOrdenados = (tarefa.comentarios || []).sort((a: any, b: any) => 
             new Date(b.dt_insert).getTime() - new Date(a.dt_insert).getTime()
         )
@@ -78,12 +81,10 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
 
   const handleSalvar = () => {
     startTransition(async () => {
-      // Ajuste Fuso Horário
       let dataIso = null
       if (dtVencimento) {
-          const d = new Date(dtVencimento)
-          d.setHours(12, 0, 0, 0)
-          dataIso = d
+        const [ano, mes, dia] = dtVencimento.split('-').map(Number)
+        dataIso= new Date(ano, mes-1, dia, 12, 0, 0)
       }
 
       await atualizarTarefa(tarefa.id, {
@@ -93,7 +94,8 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         prioridade_id: Number(prioridadeId), 
         dificuldade_id: Number(dificuldadeId),
         usuario_id: usuarioId || null,
-        coluna_id: colunaId // <--- 3. ENVIANDO A NOVA COLUNA
+        coluna_id: colunaId,
+        recorrencia: recorrencia // <--- ENVIA A RECORRÊNCIA
       }, tarefa.projeto_id)
       
       setModoEdicao(false)
@@ -157,7 +159,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
             {/* GRID DE METADADOS */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-surface-highlight/10 p-4 rounded-lg border border-border">
                 
-                {/* --- CAMPO NOVO: ETAPA / COLUNA --- */}
+                {/* --- ETAPA / COLUNA --- */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Etapa Atual</label>
                     {modoEdicao ? (
@@ -178,6 +180,30 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                             <span className="text-sm font-medium text-foreground">
                                 {colunasDisponiveis.find((c: any) => c.id === colunaId)?.nome || 'Não Classificado'}
                             </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* --- RECORRÊNCIA (NOVO) --- */}
+                <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Recorrência</label>
+                    {modoEdicao ? (
+                        <select 
+                            value={recorrencia} 
+                            onChange={e => setRecorrencia(e.target.value)} 
+                            className="w-full bg-surface border border-border rounded px-2 py-1 text-sm text-foreground"
+                        >
+                            <option value="NAO">Não repetir</option>
+                            <option value="DIARIAMENTE">Diariamente</option>
+                            <option value="SEMANALMENTE">Semanalmente</option>
+                            <option value="MENSALMENTE">Mensalmente</option>
+                        </select>
+                    ) : (
+                        <div className="text-sm font-medium text-foreground">
+                            {recorrencia === 'NAO' && 'Não'}
+                            {recorrencia === 'DIARIAMENTE' && 'Diária 🔄'}
+                            {recorrencia === 'SEMANALMENTE' && 'Semanal 🔄'}
+                            {recorrencia === 'MENSALMENTE' && 'Mensal 🔄'}
                         </div>
                     )}
                 </div>
@@ -238,7 +264,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                 {/* Dificuldade (Opcional - Movi para baixo ou pode remover se faltar espaço, mas deixei aqui caso queira manter) */}
+                 {/* Dificuldade */}
                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Dificuldade</label>
                     {modoEdicao ? (
@@ -255,7 +281,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 </div>
             </div>
 
-            {/* DESCRIÇÃO */}
+            {/* DESCRIÇÃO E COMENTÁRIOS (MANTIDOS) */}
             <div>
                 <h3 className="text-xs font-bold text-text-muted uppercase mb-2">Descrição</h3>
                 {modoEdicao ? (
@@ -272,12 +298,11 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 )}
             </div>
 
-            {/* COMENTÁRIOS */}
             <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                     💬 Comentários <span className="bg-surface-highlight px-2 py-0.5 rounded-full text-xs text-text-muted">{listaComentarios.length}</span>
                 </h3>
-
+                {/* ... (Bloco de comentários mantido) ... */}
                 <div className="space-y-3 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar-thin pr-2">
                     {listaComentarios.length === 0 ? (
                         <div className="text-center py-4 bg-surface-highlight/5 rounded-lg border border-dashed border-border">
@@ -323,7 +348,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 <p>Criado: {formatarDataHora(tarefa.dt_insert)}</p>
                 {tarefa.dt_update && <p>Atualizado: {formatarDataHora(tarefa.dt_update)}</p>}
             </div>
-
         </div>
 
         {/* FOOTER */}
@@ -347,7 +371,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 </>
             )}
         </div>
-
       </div>
     </div>
   )
