@@ -252,7 +252,7 @@ function GraficoUniversal({ type, data, xKey, bars }: any) {
             <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={dadosLimpos} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey={xKey} fontSize={11} interval={0} angle={-15} textAnchor="end" height={60} />
+                    <XAxis dataKey={xKey} fontSize={11} interval={0} textAnchor="end" height={60} tick={{fill: 'var(--color-foreground)', fontSize: 12, fontWeight: 600}}/>
                     <YAxis />
                     <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                     <Legend />
@@ -269,7 +269,7 @@ function GraficoUniversal({ type, data, xKey, bars }: any) {
             <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={dadosLimpos} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey={xKey} fontSize={11} interval={0} angle={-15} textAnchor="end" height={60} />
+                    <XAxis dataKey={xKey} fontSize={11} interval={0} textAnchor="end" height={60} tick={{fill: 'var(--color-foreground)', fontSize: 12, fontWeight: 600}}/>
                     <YAxis />
                     <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
                     <Legend />
