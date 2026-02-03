@@ -4,12 +4,16 @@ import "./globals.css";
 import { prisma } from '@/lib/prisma';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { auth } from '@/auth'
+import { Icon } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Gerenciador de Projetos",
+  title: "Flow",
   description: "Sistema de Gestão",
+  icons: {
+    icon: '/favicon.ico',
+  }
 };
 
 export const viewport: Viewport = {
