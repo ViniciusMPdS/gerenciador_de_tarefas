@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -20,11 +20,8 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [showModalProjeto, setShowModalProjeto] = useState(false)
   
-  // Verifica se estamos na página de login (inclui /login, /login/ etc)
   const isLoginPage = pathname?.startsWith('/login');
 
-  // --- LÓGICA DE PROTEÇÃO VISUAL ---
-  // Se for login, retornamos o layout LIMPO imediatamente
   if (isLoginPage) {
     return (
         <main className="min-h-screen bg-surface/50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -33,13 +30,11 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
     );
   }
 
-  // --- LAYOUT DO SISTEMA (DASHBOARD) ---
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       
       <ModalCriarProjeto isOpen={showModalProjeto} onClose={() => setShowModalProjeto(false)} />
 
-      {/* SIDEBAR - Só renderiza se NÃO for login (redundante pelo if acima, mas seguro) */}
       <aside 
         className={`${
           isSidebarOpen ? 'w-64' : 'w-20' 
@@ -48,21 +43,15 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
         {/* HEADER */}
         <div className="h-20 flex items-center px-6 border-b border-white/10 flex-shrink-0 relative">
             <div className={`w-full transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                
-                {/* ÁREA DA LOGO */}
                 <div className="relative w-50 h-20" title={workspace?.nome || 'Home'}> 
                   <Image 
                     src="/flow-sem-fundo.png" 
                     alt="Logo"
                     fill
-                    className="object-contain object-left" // Alinha a esquerda
+                    className="object-contain object-left"
                     priority
                   />
                 </div>
-
-                {/*<span className="font-semibold tracking-tight text-white truncate whitespace-nowrap">
-                  {workspace?.nome || 'Empresa'}
-                </span>*/}
             </div>
 
             <button 
@@ -73,7 +62,7 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
             </button>
         </div>
 
-        {/* NAVEGAÇÃO */}
+        {/* NAVEGAÇÃO PRINCIPAL */}
         <div className="flex-1 flex flex-col overflow-hidden">
             <div className="p-2 space-y-1">
               <SidebarLink href="/" icon="🏠" label="Início" isOpen={isSidebarOpen} active={pathname === '/'} />
@@ -81,7 +70,8 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
               <SidebarLink href="/minhas-tarefas" icon="✅" label="Tarefas" isOpen={isSidebarOpen} active={pathname === '/minhas-tarefas'} />
               <SidebarLink href="/sprint" icon="🚀" label="Sprint" isOpen={isSidebarOpen} active={pathname === '/sprint'} />
               <SidebarLink href="/dashboards" icon="📊" label="Dashboards" isOpen={isSidebarOpen} active={pathname === '/dashboards'} />
-              <SidebarLink href="/configuracoes/colunas" icon="🗂️" label="Etapas" isOpen={isSidebarOpen} active={pathname?.startsWith('/configuracoes/colunas')} />
+              
+              {/* REMOVI "ETAPAS" DAQUI POIS FOI PARA CONFIGURAÇÕES */}
             </div>
 
             <div className={`border-t border-white/5 my-2 ${!isSidebarOpen && 'border-transparent'}`}></div>
@@ -103,23 +93,28 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
             </div>
         </div>
 
-        {/* RODAPÉ */}
-        
-        <div className="mt-auto bg-surface pt-2 border-t border-white/5 flex-shrink-0">
-              {/* --- NOVO: LINK DE USUÁRIOS (SÓ APARECE SE FOR OWNER) --- */}
-              {usuario?.role === 'OWNER' && (
-                  <SidebarLink 
-                    href="/configuracoes/usuarios" 
-                    icon="👥" 
-                    label="Usuários" 
-                    isOpen={isSidebarOpen} 
-                    active={pathname === '/configuracoes/usuarios'} 
-                  />
-              )}
-             <div className="px-2 pb-4 space-y-1">
+        {/* RODAPÉ E CONFIGURAÇÕES */}
+        <div className="mt-auto bg-surface flex-shrink-0">
+            
+             {/* --- BOTÃO DE CONFIGURAÇÕES (HUB) --- */}
+             {usuario?.role === 'OWNER' && (
+                <div className="pt-2 border-t border-white/5 px-2 pb-1">
+                    <SidebarLink 
+                        href="/configuracoes" 
+                        icon="⚙️" 
+                        label="Configurações" 
+                        isOpen={isSidebarOpen} 
+                        active={pathname?.startsWith('/configuracoes')} 
+                    />
+                </div>
+             )}
+
+             {/* BOTÃO SAIR */}
+             <div className={`px-2 pb-4 ${usuario?.role !== 'OWNER' ? 'pt-4 border-t border-white/5' : 'pt-1'}`}>
                 <button 
                     onClick={() => signOut({ callbackUrl: '/login' })} 
                     className={`w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-red-500/20 transition-colors text-gray-300 hover:text-red-400 whitespace-nowrap ${!isSidebarOpen && 'justify-center'}`}
+                    title="Sair do sistema"
                 >
                     <span className="text-lg">🚪</span>
                     <span className={`ml-3 transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Sair</span>
@@ -129,10 +124,6 @@ export default function AuthenticatedLayout({ children, usuario, workspace, proj
       </aside>
 
       <main className="flex-1 overflow-y-auto h-full flex flex-col bg-surface">
-        {/* MUDANÇA CRÍTICA:
-            p-1 (4px): Quase colado nas bordas no notebook da empresa.
-            lg:p-4 (16px): Um respiro pequeno no seu monitor grande.
-        */}
         <div className="flex-1 overflow-y-auto bg-background p-1 lg:p-4">
              {children}
         </div>
