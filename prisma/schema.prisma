@@ -33,6 +33,7 @@ model Usuario {
   projetos     Projeto[]    // Projetos que criou
   tarefas      Tarefa[]
   comentarios  Comentario[]
+  acoes_historico HistoricoTarefa[]
   dt_insert    DateTime     @default(now())
   dt_update   DateTime @updatedAt @default(now())
 }
@@ -122,6 +123,7 @@ model Tarefa {
   usuario       Usuario?  @relation(fields: [usuario_id], references: [id])
 
   comentarios   Comentario[]
+  historico       HistoricoTarefa[]
 
   recorrencia       Recorrencia @default(NAO)
 }
@@ -149,4 +151,40 @@ model Comentario {
   usuario    Usuario  @relation(fields: [usuario_id], references: [id])
   dt_insert  DateTime @default(now())
   dt_update   DateTime @updatedAt @default(now())
+}
+
+// --- NOVO: ENUM PARA TIPOS DE ALTERAÇÃO ---
+enum CampoAlterado {
+  CRIACAO
+  TITULO
+  DESCRICAO
+  DT_VENCIMENTO
+  PRIORIDADE
+  DIFICULDADE
+  COLUNA
+  CONCLUSAO
+  REABERTURA
+  RESPONSAVEL
+}
+
+// --- NOVO: TABELA DE HISTÓRICO (LOG) ---
+model HistoricoTarefa {
+  id          String   @id @default(uuid())
+  
+  tarefa_id   String
+  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+
+  usuario_id  String?  // Quem fez a alteração
+  usuario     Usuario? @relation(fields: [usuario_id], references: [id])
+
+  campo       CampoAlterado // O que mudou? (Ex: DT_VENCIMENTO)
+  
+  valor_antigo String?  // Ex: "2026-02-01"
+  valor_novo   String?  // Ex: "2026-02-10"
+
+  dt_evento    DateTime @default(now())
+
+  // Índice para deixar os relatórios rápidos
+  @@index([tarefa_id])
+  @@index([dt_evento])
 }
