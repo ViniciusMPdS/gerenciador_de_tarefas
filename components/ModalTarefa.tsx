@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { atualizarTarefa, excluirTarefa, adicionarComentario } from '@/app/actions' 
-// import DatePicker from './DatePicker' // (Caso estivesse usando, mas mantive o input nativo conforme seu pedido)
+import { atualizarTarefa, excluirTarefa, adicionarComentario , excluirAnexo} from '@/app/actions' 
+import BotaoAnexo from '@/components/BotaoAnexo';
+import BotaoDeletar from './BotaoDeletar';
 
 interface Props {
   tarefa: any
@@ -23,6 +24,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
   const [dificuldadeId, setDificuldadeId] = useState('3')
   const [usuarioId, setUsuarioId] = useState('')
   const [dtVencimento, setDtVencimento] = useState('')
+  const [listaAnexos, setListaAnexos] = useState<any[]>([])
   
   // 1. Estado da Coluna
   const [colunaId, setColunaId] = useState(tarefa?.coluna_id || '')
@@ -48,6 +50,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         setUsuarioId(tarefa.usuario_id || '')
         setColunaId(tarefa.coluna_id || '')
         setRecorrencia(tarefa.recorrencia || 'NAO') // <--- Inicializa
+        setListaAnexos(tarefa.anexos || [])
 
         const comentariosOrdenados = (tarefa.comentarios || []).sort((a: any, b: any) => 
             new Date(b.dt_insert).getTime() - new Date(a.dt_insert).getTime()
@@ -298,6 +301,61 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 )}
             </div>
 
+            {/* --- BLOCO DE ANEXOS --- */}
+            <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                    📎 Anexos
+                    {listaAnexos.length > 0 && (
+                        <span className="bg-surface-highlight px-2 py-0.5 rounded-full text-xs text-text-muted">{listaAnexos.length}</span>
+                    )}
+                </h3>
+
+                {/* Lista Visual Horizontal com Scroll */}
+                {/* MUDANÇA 1: Container agora é FLEX horizontal com overflow-x-auto */}
+                <div className="flex gap-3 overflow-x-auto pb-2 mb-4 custom-scrollbar-thin">
+                    {listaAnexos.map((anexo: any) => (
+                        <div 
+                            key={anexo.id} 
+                            /* MUDANÇA 2: Adicionado 'flex-shrink-0' e uma largura fixa 'w-[300px]' */
+                            className="flex-shrink-0 w-[200px] flex items-center justify-between p-3 bg-surface border border-border rounded-lg group hover:border-indigo-500/50 transition-colors"
+                        >
+                            {/* Lado esquerdo (Ícone e Nome) */}
+                            <a href={anexo.url} target="_blank" className="flex items-center gap-3 overflow-hidden flex-1">
+                                <div className="p-2 bg-indigo-500/10 rounded text-indigo-400 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4h4"/></svg>
+                                </div>
+                                <div className="flex flex-col overflow-hidden">
+                                     {/* Ajustei o truncate para caber melhor na nova largura */}
+                                     <span className="text-sm font-bold text-foreground truncate" title={anexo.nome}>{anexo.nome}</span>
+                                     <span className="text-[10px] text-text-muted">{Math.round(anexo.tamanho / 1024)} KB</span>
+                                </div>
+                            </a>
+                            
+                            {/* Botão de Excluir Componentizado */}
+                            <div className="ml-2 flex-shrink-0">
+                                <BotaoDeletar 
+                                    titulo="Excluir Anexo?"
+                                    descricao={`Deseja realmente apagar o arquivo "${anexo.nome}"?`}
+                                    onConfirm={async () => {
+                                        setListaAnexos(curr => curr.filter(a => a.id !== anexo.id))
+                                        await excluirAnexo(anexo.id)
+                                    }} 
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Botão com Callback para atualizar a lista */}
+                <BotaoAnexo 
+                    tarefaId={tarefa.id} 
+                    onUploadConcluido={(novoAnexo) => {
+                        // Adiciona o novo anexo na lista visual imediatamente
+                        setListaAnexos(antigos => [...antigos, novoAnexo])
+                    }}
+                />
+            </div>
+
             <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                     💬 Comentários <span className="bg-surface-highlight px-2 py-0.5 rounded-full text-xs text-text-muted">{listaComentarios.length}</span>
@@ -354,7 +412,15 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         <div className="p-4 bg-surface border-t border-border flex justify-between items-center">
             {modoEdicao ? (
                 <>
-                    <button onClick={handleExcluir} className="text-red-500 hover:text-red-600 text-sm font-medium px-2 hover:underline">Excluir</button>
+                    <BotaoDeletar 
+                        texto="Excluir Tarefa"
+                        titulo="Excluir Tarefa?"
+                        descricao="Isso apagará a tarefa, todos os comentários e anexos permanentemente."
+                        onConfirm={async () => {
+                            await excluirTarefa(tarefa.id, tarefa.projeto_id)
+                            onClose()
+                        }} 
+                    />
                     <div className="flex gap-2">
                         <button onClick={() => setModoEdicao(false)} disabled={isPending} className="px-4 py-2 text-sm text-text-muted hover:text-foreground">Cancelar</button>
                         <button onClick={handleSalvar} disabled={isPending} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium shadow-sm transition-colors">

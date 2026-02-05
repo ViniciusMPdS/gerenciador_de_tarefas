@@ -126,6 +126,8 @@ model Tarefa {
   historico       HistoricoTarefa[]
 
   recorrencia       Recorrencia @default(NAO)
+
+  anexos         Anexo[]
 }
 
 // --- NOVAS TABELAS AUXILIARES ---
@@ -165,6 +167,7 @@ enum CampoAlterado {
   CONCLUSAO
   REABERTURA
   RESPONSAVEL
+  ANEXO_REMOVIDO
 }
 
 // --- NOVO: TABELA DE HISTÓRICO (LOG) ---
@@ -187,4 +190,17 @@ model HistoricoTarefa {
   // Índice para deixar os relatórios rápidos
   @@index([tarefa_id])
   @@index([dt_evento])
+}
+
+model Anexo {
+  id          String   @id @default(uuid())
+  nome        String   // Nome do arquivo (ex: contrato.pdf)
+  url         String   // O link do UploadThing
+  key         String   // ID único do arquivo no storage
+  tamanho     Int      // Tamanho em bytes
+  
+  dt_upload   DateTime @default(now())
+
+  tarefa_id   String
+  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
 }
