@@ -36,6 +36,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
       prioridade: true,   
       dificuldade: true,
       // ---------------------------------------------------------
+      anexos: true,
       comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } 
     },
     // --- CORRIGIDO: Ordenar pelo ID da prioridade (3=Alta vem primeiro) ---

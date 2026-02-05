@@ -55,7 +55,7 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     },
     orderBy: { dt_vencimento: 'asc' },
     include: {
-      projeto: true, usuario: true, coluna: true,
+      projeto: true, usuario: true, coluna: true, anexos: true,
       comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } }
     }
   })

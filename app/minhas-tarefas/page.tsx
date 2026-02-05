@@ -36,7 +36,7 @@ export default async function MinhasTarefasPage() {
     },
     orderBy: { dt_vencimento: 'asc' },
     include: {
-      projeto: true, coluna: true, usuario: true,
+      projeto: true, coluna: true, usuario: true, anexos: true,
       comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } },
       prioridade: true, dificuldade: true
     }

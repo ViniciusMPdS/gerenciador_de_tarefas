@@ -6,6 +6,9 @@ import { auth, signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import bcrypt from 'bcryptjs'
 import { Recorrencia, CampoAlterado } from '@prisma/client' // <--- ADICIONADO CampoAlterado
+import { UTApi } from "uploadthing/server";
+
+const utapi = new UTApi();
 
 // --- AUTENTICAÇÃO ---
 export async function authenticate(
@@ -645,4 +648,73 @@ export async function reordenarColunas(projetoId: string, colunasIds: string[]) 
   } catch (error) {
     console.error("Erro ao reordenar colunas:", error)
   }
+}
+
+
+export async function salvarAnexoNoBanco(dados: {
+    nome: string,
+    url: string,
+    key: string,
+    tamanho: number,
+    tarefaId: string
+}) {
+    'use server' // Garante que roda no servidor
+    
+    const novoAnexo = await prisma.anexo.create({
+        data: {
+            nome: dados.nome,
+            url: dados.url,
+            key: dados.key,
+            tamanho: dados.tamanho,
+            tarefa_id: dados.tarefaId
+        }
+    })
+
+    // Atualiza a tela para aparecer o anexo novo
+    revalidatePath('/') 
+
+    return novoAnexo
+}
+
+export async function excluirAnexo(anexoId: string) {
+    'use server'
+
+    const session = await auth() // Precisa pegar quem está apagando
+
+    // 1. Busca dados antes de apagar (para saber o nome e a key)
+    const anexo = await prisma.anexo.findUnique({
+        where: { id: anexoId },
+        include: { tarefa: true } // Para pegar o ID do projeto/tarefa
+    })
+
+    if (!anexo) return
+
+    // 2. Apaga da Nuvem (UploadThing)
+    try {
+        await utapi.deleteFiles(anexo.key)
+    } catch (error) {
+        console.error("Erro storage:", error)
+    }
+
+    // 3. Apaga do Banco
+    await prisma.anexo.delete({ where: { id: anexoId } })
+
+    // 4. [NOVO] Gera o Log de Auditoria
+    if (session?.user?.email) {
+        const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+        
+        if (usuario) {
+            await prisma.historicoTarefa.create({
+                data: {
+                    tarefa_id: anexo.tarefa_id,
+                    usuario_id: usuario.id,
+                    campo: 'ANEXO_REMOVIDO',
+                    valor_antigo: anexo.nome, // Salva o nome do arquivo que morreu
+                    valor_novo: 'Excluído'
+                }
+            })
+        }
+    }
+    
+    revalidatePath('/')
 }
