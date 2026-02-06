@@ -3,6 +3,7 @@ import Link from 'next/link'
 import DashboardTarefas from '@/components/DashboardTarefas'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import AvatarProjeto from '@/components/AvatarProjeto'
 
 // 1. FORÇA O NEXT A NÃO FAZER CACHE (CRÍTICO PARA DATAS)
 export const dynamic = 'force-dynamic'
@@ -129,12 +130,22 @@ export default async function Home() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
                         {projetosRecentes.map(projeto => (
                         <Link key={projeto.id} href={`/projeto/${projeto.id}`} className="flex flex-col justify-center p-3 lg:p-4 rounded-xl bg-surface border border-border shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-24 lg:h-28 group">
+                            
                             <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
-                                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs lg:text-sm flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    {projeto.nome.substring(0, 1).toUpperCase()}
-                                </div>
-                                <h3 className="font-bold text-foreground text-xs lg:text-sm truncate w-full" title={projeto.nome}>{projeto.nome}</h3>
+                                {/* MUDANÇA AQUI: Removi a div que envolvia e coloquei o readonly */}
+                                <AvatarProjeto 
+                                    projetoId={projeto.id} 
+                                    imagem={projeto.imagem} 
+                                    nome={projeto.nome}
+                                    tamanho="w-8 h-8 lg:w-10 lg:h-10" // Tamanho responsivo
+                                    readonly={true} // <--- TRAVA A EDIÇÃO
+                                />
+                                
+                                <h3 className="font-bold text-foreground text-xs lg:text-sm truncate w-full" title={projeto.nome}>
+                                    {projeto.nome}
+                                </h3>
                             </div>
+
                             <div className="flex justify-between items-end mt-1">
                                 <p className="text-[10px] text-gray-400">
                                     {new Date(projeto.dt_acesso).toDateString() === new Date().toDateString() ? 'Hoje' : new Date(projeto.dt_acesso).toLocaleDateString()}
