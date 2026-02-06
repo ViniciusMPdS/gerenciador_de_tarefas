@@ -77,6 +77,8 @@ model Projeto {
   dt_insert    DateTime  @default(now())
   dt_update   DateTime @updatedAt @default(now())
   dt_acesso    DateTime  @default(now())
+
+  imagem      String?  // URL da logo
 }
 
 // TABELA PIVÔ: Define a ordem das colunas DENTRO de um projeto específico

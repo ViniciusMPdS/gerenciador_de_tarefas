@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import BotaoNovoProjeto from '@/components/BotaoNovoProjeto'
+import AvatarProjeto from '@/components/AvatarProjeto'
 
 export default async function TodosProjetosPage() {
   const projetos = await prisma.projeto.findMany({
@@ -44,9 +45,12 @@ export default async function TodosProjetosPage() {
             `}
           >
             <div className="flex justify-between items-start mb-2 lg:mb-4">
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-surface/50 flex items-center justify-center text-gray-500 font-bold text-sm lg:text-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                {projeto.nome.substring(0, 1).toUpperCase()}
-              </div>
+              <AvatarProjeto 
+                  projetoId={projeto.id} 
+                  imagem={projeto.imagem} 
+                  nome={projeto.nome}
+                  tamanho="w-16 h-16" // Pode ajustar para w-16 h-16 se quiser maior
+              />
               <span className="text-[10px] lg:text-xs font-medium bg-surface/50 text-gray-600 px-2 py-1 rounded-full">
                 {projeto._count.tarefas} tarefas
               </span>
