@@ -7,30 +7,40 @@ import { useRouter } from "next/navigation";
 
 interface Props {
   tarefaId: string
-  onUploadConcluido: (novoAnexo: any) => void // <--- Nova Prop (Callback)
+  // Mudamos o nome para bater com o Modal (onUploadComplete) e deixamos opcional (?)
+  onUploadComplete?: (novoAnexo?: any) => void 
+  // Adicionamos a prop compacto
+  compacto?: boolean
 }
 
-export default function BotaoAnexo({ tarefaId, onUploadConcluido }: Props) {
+export default function BotaoAnexo({ tarefaId, onUploadComplete, compacto = false }: Props) {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
 
+  // Define o estilo baseado na prop 'compacto'
+  const buttonStyle = compacto 
+    ? "bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-[11px] font-bold px-3 py-1.5 rounded h-8 shadow-sm" // Estilo Compacto
+    : "bg-indigo-600 text-white hover:bg-indigo-500 text-xs font-medium px-4 py-2 rounded-md" // Estilo Padrão
+
   return (
-    <div className="mt-2">
+    <div className={compacto ? "" : "mt-2"}>
       <UploadButton
         endpoint="anexoUploader"
-        // Customização visual do botão
+        // Customização visual dinâmica
         appearance={{
-            button: `text-white text-xs font-medium px-4 py-2 rounded-md transition-all
-                     ${isUploading ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500'}`,
-            allowedContent: "hidden", // Esconde o texto "Max 8MB..."
-            container: "w-full flex justify-start" // Alinha a esquerda
+            button: `${buttonStyle} transition-all ${isUploading ? 'opacity-50 cursor-wait' : ''}`,
+            allowedContent: "hidden", 
+            container: compacto ? "w-auto" : "w-full flex justify-start"
         }}
         // Textos personalizados
         content={{
             button({ ready, isUploading }) {
-                if (isUploading) return <div className="flex items-center gap-2">⏳ Salvando...</div>;
-                if (ready) return <div className="flex items-center gap-2">📎 Anexar Arquivo</div>;
-                return "Carregando...";
+                if (isUploading) return "⏳ ...";
+                if (ready) {
+                    // Texto mais curto se for compacto
+                    return compacto ? "📎 Anexar" : <div className="flex items-center gap-2">📎 Anexar Arquivo</div>;
+                }
+                return "...";
             }
         }}
         // Eventos
@@ -39,7 +49,6 @@ export default function BotaoAnexo({ tarefaId, onUploadConcluido }: Props) {
         }}
         onClientUploadComplete={async (res) => {
           if (res) {
-            // Salva cada arquivo e atualiza a tela instantaneamente
             for (const arquivo of res) {
                 const anexoSalvo = await salvarAnexoNoBanco({
                     nome: arquivo.name,
@@ -49,14 +58,14 @@ export default function BotaoAnexo({ tarefaId, onUploadConcluido }: Props) {
                     tarefaId: tarefaId
                 })
                 
-                // Avisa o Modal que tem anexo novo (Atualização Otimista)
-                if (anexoSalvo) {
-                    onUploadConcluido(anexoSalvo)
+                // CHAMA O CALLBACK (Se existir)
+                if (anexoSalvo && onUploadComplete) {
+                    onUploadComplete(anexoSalvo)
                 }
             }
             
             setIsUploading(false);
-            router.refresh(); // Garante que o servidor também saiba
+            router.refresh(); 
           }
         }}
         onUploadError={(error: Error) => {

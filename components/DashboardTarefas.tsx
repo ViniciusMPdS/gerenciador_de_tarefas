@@ -206,6 +206,7 @@ export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, proj
 
         {/* --- MODAL DE CONCLUSÃO --- */}
         <ModalConclusao
+            tarefaId={tarefaParaConcluir?.id}
             isOpen={!!tarefaParaConcluir}
             onClose={() => setTarefaParaConcluir(null)}
             onConfirm={handleConfirmarConclusao}

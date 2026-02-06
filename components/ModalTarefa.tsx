@@ -26,21 +26,15 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
   const [dtVencimento, setDtVencimento] = useState('')
   const [listaAnexos, setListaAnexos] = useState<any[]>([])
   
-  // 1. Estado da Coluna
   const [colunaId, setColunaId] = useState(tarefa?.coluna_id || '')
-  
-  // 2. Estado da Recorrência
   const [recorrencia, setRecorrencia] = useState(tarefa?.recorrencia || 'NAO')
 
-  // Comentários
   const [novoComentario, setNovoComentario] = useState('')
   const [listaComentarios, setListaComentarios] = useState<any[]>([])
 
-  // 3. LÓGICA DE COLUNAS DISPONÍVEIS
   const projetoAtual = projetos.find((p: any) => p.id === tarefa?.projeto_id)
   const colunasDisponiveis = projetoAtual?.colunas?.map((c: any) => c.coluna || c) || []
 
-  // Atualiza estados quando abre o modal
   useEffect(() => {
     if (isOpen && tarefa) {
         setTitulo(tarefa.titulo)
@@ -49,7 +43,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         setDificuldadeId(String(tarefa.dificuldade_id || '3'))
         setUsuarioId(tarefa.usuario_id || '')
         setColunaId(tarefa.coluna_id || '')
-        setRecorrencia(tarefa.recorrencia || 'NAO') // <--- Inicializa
+        setRecorrencia(tarefa.recorrencia || 'NAO') 
         setListaAnexos(tarefa.anexos || [])
 
         const comentariosOrdenados = (tarefa.comentarios || []).sort((a: any, b: any) => 
@@ -82,6 +76,42 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
     });
   }
 
+  // --- FUNÇÃO VISUAL NOVA PARA OS ÍCONES ---
+  const renderPreview = (anexo: any) => {
+    const ext = anexo.nome.split('.').pop()?.toLowerCase() || '';
+
+    // 1. FOTO: Mostra a imagem real
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+        return (
+            <div className="w-14 h-14 rounded overflow-hidden border border-gray-200 shrink-0 bg-gray-100">
+                <img src={anexo.url} alt="preview" className="w-full h-full object-cover" />
+            </div>
+        )
+    }
+    // 2. PDF: Ícone Vermelho
+    if (ext === 'pdf') {
+        return (
+            <div className="w-14 h-14 rounded bg-red-100 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><span className="text-[8px] font-bold">PDF</span></svg>
+            </div>
+        )
+    }
+    // 3. EXCEL: Ícone Verde
+    if (['xls', 'xlsx', 'csv'].includes(ext)) {
+        return (
+            <div className="w-14 h-14 rounded bg-green-100 text-green-600 flex items-center justify-center shrink-0 border border-green-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+            </div>
+        )
+    }
+    // 4. PADRÃO: Ícone Cinza
+    return (
+        <div className="w-14 h-14 rounded bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 border border-gray-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+    )
+  }
+
   const handleSalvar = () => {
     startTransition(async () => {
       let dataIso = null
@@ -98,21 +128,12 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
         dificuldade_id: Number(dificuldadeId),
         usuario_id: usuarioId || null,
         coluna_id: colunaId,
-        recorrencia: recorrencia // <--- ENVIA A RECORRÊNCIA
+        recorrencia: recorrencia 
       }, tarefa.projeto_id)
       
       setModoEdicao(false)
       onClose()
     })
-  }
-
-  const handleExcluir = () => {
-    if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
-        startTransition(async () => {
-            await excluirTarefa(tarefa.id, tarefa.projeto_id)
-            onClose()
-        })
-    }
   }
 
   const handleEnviarComentario = async () => {
@@ -162,7 +183,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
             {/* GRID DE METADADOS */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-surface-highlight/10 p-4 rounded-lg border border-border">
                 
-                {/* --- ETAPA / COLUNA --- */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Etapa Atual</label>
                     {modoEdicao ? (
@@ -187,7 +207,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                {/* --- RECORRÊNCIA (NOVO) --- */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Recorrência</label>
                     {modoEdicao ? (
@@ -211,7 +230,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                {/* Data (Editável) */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Vencimento</label>
                     {modoEdicao ? (
@@ -228,7 +246,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                {/* Prioridade */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Prioridade</label>
                     {modoEdicao ? (
@@ -245,7 +262,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                {/* Responsável */}
                 <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Responsável</label>
                     {modoEdicao ? (
@@ -267,7 +283,6 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </div>
 
-                 {/* Dificuldade */}
                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[10px] font-bold text-text-muted uppercase mb-1">Dificuldade</label>
                     {modoEdicao ? (
@@ -284,7 +299,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 </div>
             </div>
 
-            {/* DESCRIÇÃO E COMENTÁRIOS (MANTIDOS) */}
+            {/* DESCRIÇÃO */}
             <div>
                 <h3 className="text-xs font-bold text-text-muted uppercase mb-2">Descrição</h3>
                 {modoEdicao ? (
@@ -301,7 +316,7 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                 )}
             </div>
 
-            {/* --- BLOCO DE ANEXOS --- */}
+            {/* --- BLOCO DE ANEXOS ATUALIZADO (MESMA ESTRUTURA, VISUAL NOVO) --- */}
             <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                     📎 Anexos
@@ -310,28 +325,24 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                     )}
                 </h3>
 
-                {/* Lista Visual Horizontal com Scroll */}
-                {/* MUDANÇA 1: Container agora é FLEX horizontal com overflow-x-auto */}
                 <div className="flex gap-3 overflow-x-auto pb-2 mb-4 custom-scrollbar-thin">
                     {listaAnexos.map((anexo: any) => (
                         <div 
                             key={anexo.id} 
-                            /* MUDANÇA 2: Adicionado 'flex-shrink-0' e uma largura fixa 'w-[300px]' */
-                            className="flex-shrink-0 w-[200px] flex items-center justify-between p-3 bg-surface border border-border rounded-lg group hover:border-indigo-500/50 transition-colors"
+                            className="flex-shrink-0 w-[250px] flex items-center justify-between p-3 bg-surface border border-border rounded-lg group hover:border-indigo-500/50 transition-colors"
                         >
-                            {/* Lado esquerdo (Ícone e Nome) */}
+                            {/* Lado esquerdo (Ícone BONITINHO e Nome) */}
                             <a href={anexo.url} target="_blank" className="flex items-center gap-3 overflow-hidden flex-1">
-                                <div className="p-2 bg-indigo-500/10 rounded text-indigo-400 shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4h4"/></svg>
-                                </div>
+                                
+                                {/* AQUI ESTÁ A MUDANÇA VISUAL (Chama a função renderPreview) */}
+                                {renderPreview(anexo)}
+
                                 <div className="flex flex-col overflow-hidden">
-                                     {/* Ajustei o truncate para caber melhor na nova largura */}
                                      <span className="text-sm font-bold text-foreground truncate" title={anexo.nome}>{anexo.nome}</span>
                                      <span className="text-[10px] text-text-muted">{Math.round(anexo.tamanho / 1024)} KB</span>
                                 </div>
                             </a>
                             
-                            {/* Botão de Excluir Componentizado */}
                             <div className="ml-2 flex-shrink-0">
                                 <BotaoDeletar 
                                     titulo="Excluir Anexo?"
@@ -344,23 +355,27 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                             </div>
                         </div>
                     ))}
+                    {listaAnexos.length === 0 && (
+                        <p className="text-xs text-text-muted italic w-full">Nenhum anexo encontrado.</p>
+                    )}
                 </div>
 
-                {/* Botão com Callback para atualizar a lista */}
-                <BotaoAnexo 
-                    tarefaId={tarefa.id} 
-                    onUploadConcluido={(novoAnexo) => {
-                        // Adiciona o novo anexo na lista visual imediatamente
-                        setListaAnexos(antigos => [...antigos, novoAnexo])
-                    }}
-                />
+                <div className="mt-2">
+                    <BotaoAnexo 
+                        tarefaId={tarefa.id} 
+                        // Verifique se o nome da prop no seu botão é onUploadConcluido ou onUploadComplete
+                        onUploadComplete={(novoAnexo) => {
+                            setListaAnexos(antigos => [...antigos, novoAnexo])
+                        }}
+                    />
+                </div>
             </div>
 
             <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                     💬 Comentários <span className="bg-surface-highlight px-2 py-0.5 rounded-full text-xs text-text-muted">{listaComentarios.length}</span>
                 </h3>
-                {/* ... (Bloco de comentários mantido) ... */}
+                
                 <div className="space-y-3 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar-thin pr-2">
                     {listaComentarios.length === 0 ? (
                         <div className="text-center py-4 bg-surface-highlight/5 rounded-lg border border-dashed border-border">
