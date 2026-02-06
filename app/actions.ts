@@ -718,3 +718,39 @@ export async function excluirAnexo(anexoId: string) {
     
     revalidatePath('/')
 }
+
+export async function atualizarImagemProjeto(projetoId: string, novaUrlImagem: string) {
+    'use server'
+    
+    // 1. Busca a imagem ANTIGA antes de atualizar
+    const projetoAntigo = await prisma.projeto.findUnique({
+        where: { id: projetoId },
+        select: { imagem: true }
+    })
+
+    // 2. Se existia uma imagem antiga, vamos apagá-la do Storage
+    if (projetoAntigo?.imagem) {
+        try {
+            // A URL do UploadThing geralmente é assim: https://utfs.io/f/CHAVE-DO-ARQUIVO
+            // Precisamos pegar só a parte final (a CHAVE)
+            const keyAntiga = projetoAntigo.imagem.split('/f/')[1]
+
+            if (keyAntiga) {
+                await utapi.deleteFiles(keyAntiga)
+            }
+        } catch (error) {
+            console.error("Erro ao apagar logo antiga:", error)
+            // Não paramos o fluxo aqui, pois o importante é atualizar a nova
+        }
+    }
+
+    // 3. Atualiza o banco com a NOVA imagem
+    await prisma.projeto.update({
+        where: { id: projetoId },
+        data: { imagem: novaUrlImagem }
+    })
+    
+    revalidatePath('/projetos')
+    revalidatePath('/')
+    revalidatePath(`/projeto/${projetoId}`)
+}

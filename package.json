@@ -23,6 +23,7 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.2.3",
+    "react-easy-crop": "^5.5.6",
     "recharts": "^3.7.0",
     "uploadthing": "^7.7.4"
   },
