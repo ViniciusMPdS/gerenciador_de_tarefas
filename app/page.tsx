@@ -148,7 +148,7 @@ export default async function Home() {
 
                             <div className="flex justify-between items-end mt-1">
                                 <p className="text-[10px] text-gray-400">
-                                    {new Date(projeto.dt_acesso).toDateString() === new Date().toDateString() ? 'Hoje' : new Date(projeto.dt_acesso).toLocaleDateString()}
+                                    {new Date(projeto.dt_acesso).toDateString() === new Date().toDateString() ? 'Hoje' : new Date(projeto.dt_acesso).toLocaleDateString('pt-BR')}
                                 </p>
                                 <span className="text-[9px] lg:text-[10px] bg-surface/50 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">{projeto._count.tarefas}</span>
                             </div>
