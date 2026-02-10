@@ -386,7 +386,7 @@ export default function MinhasTarefasView({
         
         {/* MODAIS */}
         {selectedTarefa && <ModalTarefa tarefa={selectedTarefa} isOpen={!!selectedTarefa} onClose={() => setSelectedTarefa(null)} usuarios={usuarios} projetos={listaProjetos} />}
-        {tarefaParaConcluir && <ModalConclusao tarefaId={tarefaParaConcluir} isOpen={!!tarefaParaConcluir} onClose={() => setTarefaParaConcluir(null)} onConfirm={confirmarConclusao} isSaving={isPending} />}
+        {tarefaParaConcluir && <ModalConclusao key={tarefaParaConcluir} tarefaId={tarefaParaConcluir} isOpen={!!tarefaParaConcluir} onClose={() => setTarefaParaConcluir(null)} onConfirm={confirmarConclusao} isSaving={isPending} />}
       
       </div>
     </DndProvider>
