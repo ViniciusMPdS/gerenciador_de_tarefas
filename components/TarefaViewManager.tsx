@@ -12,12 +12,14 @@ function KanbanBoardContent({
   tarefas, 
   usuarios, 
   colunasParaMostrar, 
-  tarefasPorColuna 
+  tarefasPorColuna,
+  usuarioId
 }: { 
   tarefas: any[], 
   usuarios: any[], 
   colunasParaMostrar: any[], 
   tarefasPorColuna: any 
+  usuarioId: string
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -81,7 +83,7 @@ function KanbanBoardContent({
               </div>
               <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar-thin flex-1">
                   {tarefas.filter(t => !t.coluna_id).map(tarefa => (
-                      <CardKanban key={tarefa.id} tarefa={tarefa} usuarios={usuarios} />
+                      <CardKanban key={tarefa.id} tarefa={tarefa} usuarios={usuarios} usuarioId={usuarioId}/>
                   ))}
               </div>
             </div>
@@ -95,6 +97,7 @@ function KanbanBoardContent({
               tarefas={tarefasPorColuna[coluna.id] || []}
               usuarios={usuarios}
               projetoId={tarefasPorColuna[coluna.id]?.[0]?.projeto_id || tarefas[0]?.projeto_id}
+              usuarioId={usuarioId}
             />
         </div>
       ))}
@@ -113,9 +116,10 @@ interface Props {
   projetos: any[]
   todasColunas?: any[] 
   mostrarVazias?: boolean
+  usuarioId: string
 }
 
-export default function TarefaViewManager({ tarefas, usuarios, projetos, todasColunas = [], mostrarVazias = false }: Props) {
+export default function TarefaViewManager({ tarefas, usuarios, projetos, todasColunas = [], mostrarVazias = false, usuarioId }: Props) {
   const [view, setView] = useState<'LISTA' | 'QUADRO'>('QUADRO')
   const [selectedTarefa, setSelectedTarefa] = useState<any>(null)
 
@@ -185,6 +189,7 @@ export default function TarefaViewManager({ tarefas, usuarios, projetos, todasCo
                 usuarios={usuarios}
                 colunasParaMostrar={colunasParaMostrar}
                 tarefasPorColuna={tarefasPorColuna}
+                usuarioId={usuarioId}
              />
            </div>
         </DndProvider>
@@ -230,6 +235,7 @@ export default function TarefaViewManager({ tarefas, usuarios, projetos, todasCo
               onClose={() => setSelectedTarefa(null)} 
               usuarios={usuarios} 
               projetos={projetos}
+              usuarioLogadoId={usuarioId}
           />
       )}
     </div>

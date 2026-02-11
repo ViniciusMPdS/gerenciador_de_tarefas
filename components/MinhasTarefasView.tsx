@@ -21,6 +21,7 @@ interface Props {
   calendarViewMode?: 'SEMANA' | 'MES' 
   agrupamento?: 'PROJETO' | 'COLUNA' 
   esconderFiltroProjeto?: boolean 
+  usuarioLogadoId: string
 }
 
 const ItemTypes = {
@@ -105,7 +106,8 @@ export default function MinhasTarefasView({
     initialCalendarDate,
     calendarViewMode,
     agrupamento = 'PROJETO', 
-    esconderFiltroProjeto = false
+    esconderFiltroProjeto = false,
+    usuarioLogadoId
 }: Props) {
   const getColunaId = (t: any) => {
       // Tenta pegar o ID direto, ou de dentro do objeto coluna, ou retorna null
@@ -319,6 +321,7 @@ export default function MinhasTarefasView({
                                     onOpen={setSelectedTarefa} 
                                     isPending={isPending} 
                                     tipo="PROJETO" 
+                                    usuarioLogadoId={usuarioLogadoId}
                                 />
                             )
                         })
@@ -334,7 +337,8 @@ export default function MinhasTarefasView({
                                 onOpen={setSelectedTarefa} 
                                 isPending={isPending} 
                                 isWarning 
-                                tipo="COLUNA" 
+                                tipo="COLUNA"
+                                usuarioLogadoId={usuarioLogadoId}
                             />
                         )}
 
@@ -385,7 +389,7 @@ export default function MinhasTarefasView({
         </div>
         
         {/* MODAIS */}
-        {selectedTarefa && <ModalTarefa tarefa={selectedTarefa} isOpen={!!selectedTarefa} onClose={() => setSelectedTarefa(null)} usuarios={usuarios} projetos={listaProjetos} />}
+        {selectedTarefa && <ModalTarefa tarefa={selectedTarefa} isOpen={!!selectedTarefa} onClose={() => setSelectedTarefa(null)} usuarios={usuarios} projetos={listaProjetos} usuarioLogadoId={usuarioLogadoId}/>}
         {tarefaParaConcluir && <ModalConclusao key={tarefaParaConcluir} tarefaId={tarefaParaConcluir} isOpen={!!tarefaParaConcluir} onClose={() => setTarefaParaConcluir(null)} onConfirm={confirmarConclusao} isSaving={isPending} />}
       
       </div>
@@ -395,7 +399,7 @@ export default function MinhasTarefasView({
 
 function KanbanColumn({ 
     id, index, onTrocarColuna,
-    titulo, count, tarefas, onDrop, onCheck, onOpen, isPending, isWarning, tipo, dropId 
+    titulo, count, tarefas, onDrop, onCheck, onOpen, isPending, isWarning, tipo, dropId, usuarioId
 }: any) {
     
     const ref = useRef<HTMLDivElement>(null)
@@ -460,7 +464,7 @@ function KanbanColumn({
 
             <div ref={dropTask as unknown as React.LegacyRef<HTMLDivElement>} className="p-2 overflow-y-auto flex-1 space-y-2 custom-scrollbar-thin min-h-[100px]">
                 {tarefas.length === 0 ? <div className="text-center text-text-muted text-xs py-4 italic">Vazio</div> : tarefas.map((t: any) => (
-                        <DraggableKanbanCard key={t.id} tarefa={t} onCheck={onCheck} onOpen={onOpen} isPending={isPending} />
+                        <DraggableKanbanCard key={t.id} tarefa={t} onCheck={onCheck} onOpen={onOpen} isPending={isPending} usuarioId={usuarioId}/>
                 ))}
             </div>
         </div>

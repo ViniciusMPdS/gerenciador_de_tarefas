@@ -9,9 +9,10 @@ interface CardProps {
   tarefa: any
   usuarios: any[]
   projetos?: any[]
+  usuarioId: string
 }
 
-export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
+export default function CardKanban({ tarefa, usuarios, projetos, usuarioId }: CardProps) {
   const [isPending, startTransition] = useTransition()
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -103,6 +104,7 @@ export default function CardKanban({ tarefa, usuarios, projetos }: CardProps) {
           onClose={() => setIsModalOpen(false)} 
           usuarios={usuarios}
           projetos={projetos || []}
+          usuarioLogadoId={usuarioId}
         />
       )}
     </>
