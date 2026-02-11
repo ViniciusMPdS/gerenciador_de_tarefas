@@ -3,93 +3,84 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // ou "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Workspace {
   id        String    @id @default(uuid())
   nome      String
-  // O Workspace é dono das colunas (Biblioteca Geral)
-  colunas   Coluna[]  
+  colunas   Coluna[]
   usuarios  Usuario[]
   projetos  Projeto[]
   dt_insert DateTime  @default(now())
+
+  @@map("workspace")
 }
 
 model Usuario {
-  id           String       @id @default(uuid())
-  nome         String
-  email        String       @unique
-  senha        String       // Obrigatório para Login
-  role         String       @default("USER") // OWNER, ADMIN, USER
-  ativo        Boolean      @default(true)
-  imagem       String?
-  cargo        String?
-  
-  workspace_id String
-  workspace    Workspace    @relation(fields: [workspace_id], references: [id])
-  
-  projetos     Projeto[]    // Projetos que criou
-  tarefas      Tarefa[]
-  comentarios  Comentario[]
+  id              String            @id @default(uuid())
+  nome            String
+  email           String            @unique
+  senha           String
+  role            String            @default("USER")
+  ativo           Boolean           @default(true)
+  imagem          String?
+  cargo           String?
+  workspace_id    String
+  workspace       Workspace         @relation(fields: [workspace_id], references: [id])
+  projetos        Projeto[]
+  tarefas         Tarefa[]
+  comentarios     Comentario[]
   acoes_historico HistoricoTarefa[]
-  dt_insert    DateTime     @default(now())
-  dt_update   DateTime @updatedAt @default(now())
+  dt_insert       DateTime          @default(now())
+  dt_update       DateTime          @updatedAt @default(now())
+
+  @@map("usuario")
 }
 
 model Coluna {
   id           String          @id @default(uuid())
-  nome         String          // Ex: "Backlog"
-  cor          String?         // Ex: "bg-gray-200"
-  
-  // Pertence ao Workspace (Biblioteca Global)
+  nome         String
+  cor          String?
   workspace_id String
   workspace    Workspace       @relation(fields: [workspace_id], references: [id])
-  
-  // Usada em vários projetos (Relação N:N)
-  projetos     ProjetoColuna[] 
-  
-  // Tarefas que estão nessa coluna
-  tarefas      Tarefa[]        
-  
+  projetos     ProjetoColuna[]
+  tarefas      Tarefa[]
   dt_insert    DateTime        @default(now())
-  dt_update   DateTime @updatedAt @default(now())
+  dt_update    DateTime        @updatedAt @default(now())
+
+  @@map("coluna")
 }
 
 model Projeto {
-  id           String    @id @default(uuid())
+  id           String          @id @default(uuid())
   nome         String
-  descricao    String?   @db.Text
-
-  ativo          Boolean   @default(true)
-  
+  descricao    String?         @db.Text
+  ativo        Boolean         @default(true)
   workspace_id String
-  workspace    Workspace @relation(fields: [workspace_id], references: [id])
-  
-  usuario_id   String    // Dono
-  usuario      Usuario   @relation(fields: [usuario_id], references: [id])
-
-  // Ligações
+  workspace    Workspace       @relation(fields: [workspace_id], references: [id])
+  usuario_id   String
+  usuario      Usuario         @relation(fields: [usuario_id], references: [id])
   colunas      ProjetoColuna[]
   tarefas      Tarefa[]
-  
-  dt_insert    DateTime  @default(now())
-  dt_update   DateTime @updatedAt @default(now())
-  dt_acesso    DateTime  @default(now())
+  dt_insert    DateTime        @default(now())
+  dt_update    DateTime        @updatedAt @default(now())
+  dt_acesso    DateTime        @default(now())
+  imagem       String?
 
-  imagem      String?  // URL da logo
+  @@map("projeto")
 }
 
-// TABELA PIVÔ: Define a ordem das colunas DENTRO de um projeto específico
 model ProjetoColuna {
   projeto_id String
   projeto    Projeto @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
   coluna_id  String
   coluna     Coluna  @relation(fields: [coluna_id], references: [id], onDelete: Cascade)
-  ordem      Int     // 1, 2, 3...
-  
+  ordem      Int
+
   @@id([projeto_id, coluna_id])
+  @@map("projeto_coluna")
 }
 
 enum Recorrencia {
@@ -100,50 +91,46 @@ enum Recorrencia {
 }
 
 model Tarefa {
-  id            String    @id @default(cuid())
-  titulo        String
-  descricao     String?
-  concluida     Boolean   @default(false)
-  dt_vencimento DateTime?
-  dt_conclusao  DateTime?
-  dt_insert     DateTime  @default(now())
-  dt_update   DateTime @updatedAt @default(now())
-
-  prioridade_id Int
-  prioridade    OpcaoPrioridade @relation(fields: [prioridade_id], references: [id])
-
+  id             String           @id @default(cuid())
+  titulo         String
+  descricao      String?
+  concluida      Boolean          @default(false)
+  dt_vencimento  DateTime?
+  dt_conclusao   DateTime?
+  dt_insert      DateTime         @default(now())
+  dt_update      DateTime         @updatedAt @default(now())
+  prioridade_id  Int
+  prioridade     OpcaoPrioridade  @relation(fields: [prioridade_id], references: [id])
   dificuldade_id Int
   dificuldade    OpcaoDificuldade @relation(fields: [dificuldade_id], references: [id])
-
-  projeto_id    String
-  projeto       Projeto   @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
-
-  coluna_id     String?
-  coluna        Coluna?   @relation(fields: [coluna_id], references: [id])
-
-  usuario_id    String?
-  usuario       Usuario?  @relation(fields: [usuario_id], references: [id])
-
-  comentarios   Comentario[]
-  historico       HistoricoTarefa[]
-
-  recorrencia       Recorrencia @default(NAO)
-
+  projeto_id     String
+  projeto        Projeto          @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
+  coluna_id      String?
+  coluna         Coluna?          @relation(fields: [coluna_id], references: [id])
+  usuario_id     String?
+  usuario        Usuario?         @relation(fields: [usuario_id], references: [id])
+  comentarios    Comentario[]
+  historico      HistoricoTarefa[]
+  recorrencia    Recorrencia      @default(NAO)
   anexos         Anexo[]
+
+  @@map("tarefa")
 }
 
-// --- NOVAS TABELAS AUXILIARES ---
-
 model OpcaoPrioridade {
-  id      Int      @id // Vamos usar 1, 2, 3 manualmente
-  nome    String   // "Baixa", "Média", "Alta"
+  id      Int      @id
+  nome    String
   tarefas Tarefa[]
+
+  @@map("opcao_prioridade")
 }
 
 model OpcaoDificuldade {
-  id      Int      @id // Vamos usar 1, 2, 3, 4, 5
-  nome    String   // "Muito Fácil", "Fácil", etc
+  id      Int      @id
+  nome    String
   tarefas Tarefa[]
+
+  @@map("opcao_dificuldade")
 }
 
 model Comentario {
@@ -154,10 +141,11 @@ model Comentario {
   usuario_id String
   usuario    Usuario  @relation(fields: [usuario_id], references: [id])
   dt_insert  DateTime @default(now())
-  dt_update   DateTime @updatedAt @default(now())
+  dt_update  DateTime @updatedAt @default(now())
+
+  @@map("comentario")
 }
 
-// --- NOVO: ENUM PARA TIPOS DE ALTERAÇÃO ---
 enum CampoAlterado {
   CRIACAO
   TITULO
@@ -172,37 +160,31 @@ enum CampoAlterado {
   ANEXO_REMOVIDO
 }
 
-// --- NOVO: TABELA DE HISTÓRICO (LOG) ---
 model HistoricoTarefa {
-  id          String   @id @default(uuid())
-  
-  tarefa_id   String
-  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+  id           String        @id @default(uuid())
+  tarefa_id    String
+  tarefa       Tarefa        @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+  usuario_id   String?
+  usuario      Usuario?      @relation(fields: [usuario_id], references: [id])
+  campo        CampoAlterado
+  valor_antigo String?
+  valor_novo   String?
+  dt_evento    DateTime      @default(now())
 
-  usuario_id  String?  // Quem fez a alteração
-  usuario     Usuario? @relation(fields: [usuario_id], references: [id])
-
-  campo       CampoAlterado // O que mudou? (Ex: DT_VENCIMENTO)
-  
-  valor_antigo String?  // Ex: "2026-02-01"
-  valor_novo   String?  // Ex: "2026-02-10"
-
-  dt_evento    DateTime @default(now())
-
-  // Índice para deixar os relatórios rápidos
   @@index([tarefa_id])
   @@index([dt_evento])
+  @@map("historico_tarefa")
 }
 
 model Anexo {
-  id          String   @id @default(uuid())
-  nome        String   // Nome do arquivo (ex: contrato.pdf)
-  url         String   // O link do UploadThing
-  key         String   // ID único do arquivo no storage
-  tamanho     Int      // Tamanho em bytes
-  
-  dt_upload   DateTime @default(now())
+  id        String   @id @default(uuid())
+  nome      String
+  url       String
+  key       String
+  tamanho   Int
+  dt_upload DateTime @default(now())
+  tarefa_id String
+  tarefa    Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
 
-  tarefa_id   String
-  tarefa      Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
+  @@map("anexo")
 }
