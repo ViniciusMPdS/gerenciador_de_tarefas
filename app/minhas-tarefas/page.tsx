@@ -81,6 +81,7 @@ export default async function MinhasTarefasPage() {
             agrupamento="PROJETO"
             // 3. Passamos a data corrigida para o calendário iniciar certo
             initialCalendarDate={dataBrasil}
+            usuarioLogadoId={usuario.id}
         />
       </div>
     </div>

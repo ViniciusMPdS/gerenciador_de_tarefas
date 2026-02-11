@@ -310,6 +310,65 @@ export async function adicionarComentario(tarefaId: string, texto: string) {
   return novoComentario
 }
 
+export async function excluirComentario(comentarioId: string, usuarioSolicitanteId: string) {
+  'use server'
+
+  // 1. Busca o comentário para ver de quem é
+  const comentario = await prisma.comentario.findUnique({
+    where: { id: comentarioId },
+    include: { usuario: true } // Se precisar checar role de admin
+  })
+
+  if (!comentario) {
+    throw new Error("Comentário não encontrado.")
+  }
+
+  // 2. VERIFICAÇÃO DE SEGURANÇA
+  // A lógica aqui: Só passa se o ID bater OU se for Admin (ajuste sua lógica de admin se tiver)
+  const ehDono = comentario.usuario_id === usuarioSolicitanteId
+  const ehAdmin = false // TODO: Se você tiver um campo 'role' ou 'admin', coloque aqui. Ex: usuario.role === 'ADMIN'
+
+  if (!ehDono && !ehAdmin) {
+    throw new Error("Você não tem permissão para excluir este comentário.")
+  }
+
+  // 3. Exclui
+  await prisma.comentario.delete({
+    where: { id: comentarioId }
+  })
+
+  revalidatePath('/')
+  return true
+}
+
+export async function editarComentario(comentarioId: string, novoTexto: string, usuarioSolicitanteId: string) {
+  'use server'
+
+  const comentario = await prisma.comentario.findUnique({
+    where: { id: comentarioId }
+  })
+
+  if (!comentario) {
+    throw new Error("Comentário não encontrado.")
+  }
+
+  // Verifica permissão (Geralmente só o dono edita, admin só exclui, mas você decide)
+  if (comentario.usuario_id !== usuarioSolicitanteId) {
+    throw new Error("Apenas o autor pode editar o comentário.")
+  }
+
+  await prisma.comentario.update({
+    where: { id: comentarioId },
+    data: { 
+      texto: novoTexto,
+      dt_update: new Date() // Atualiza a data de modificação
+    }
+  })
+
+  revalidatePath('/')
+  return true
+}
+
 // ATUALIZADO COM LOG DE COLUNA
 export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string, projetoId: string) {
   const session = await auth()

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { atualizarTarefa, excluirTarefa, adicionarComentario , excluirAnexo} from '@/app/actions' 
 import BotaoAnexo from '@/components/BotaoAnexo';
 import BotaoDeletar from './BotaoDeletar';
+import ItemComentario from './ItemComentario';
 
 interface Props {
   tarefa: any
@@ -11,9 +12,10 @@ interface Props {
   onClose: () => void
   usuarios: any[]
   projetos: any[]
+  usuarioLogadoId: string
 }
 
-export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projetos }: Props) {
+export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projetos, usuarioLogadoId }: Props) {
   const [isPending, startTransition] = useTransition()
   const [modoEdicao, setModoEdicao] = useState(false)
 
@@ -139,17 +141,36 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
   const handleEnviarComentario = async () => {
       if (!novoComentario.trim()) return;
 
+      // 1. Cria um ID temporário para a UI não piscar
+      const tempId = Math.random().toString();
+
       const tempComentario = {
-          id: Math.random().toString(),
+          id: tempId,
           texto: novoComentario,
           dt_insert: new Date(),
-          usuario: { nome: 'Eu' } 
+          usuario: { nome: 'Eu' }, // Nome provisório
+          usuario_id: usuarioLogadoId // <--- IMPORTANTE: Garante que o botão apareça
       }
       
+      // 2. Mostra na tela imediatamente (Otimista)
       setListaComentarios([tempComentario, ...listaComentarios])
       const textoEnviar = novoComentario
       setNovoComentario('')
-      await adicionarComentario(tarefa.id, textoEnviar)
+      
+      try {
+          // 3. Manda pro servidor e ESPERA a resposta com o ID real
+          const comentarioReal = await adicionarComentario(tarefa.id, textoEnviar)
+          
+          if (comentarioReal) {
+              // 4. TROCA o comentário temporário pelo Real (com ID certo) na lista
+              setListaComentarios(prev => prev.map(c => 
+                  c.id === tempId ? comentarioReal : c
+              ))
+          }
+      } catch (error) {
+          console.error("Erro ao salvar comentário", error)
+          // Opcional: Remover da lista se der erro
+      }
   }
 
   return (
@@ -382,19 +403,16 @@ export default function ModalTarefa({ tarefa, isOpen, onClose, usuarios, projeto
                             <p className="text-xs text-text-muted">Nenhum comentário. Seja o primeiro!</p>
                         </div>
                     ) : (
-                        listaComentarios.map((c: any, idx) => (
-                            <div key={c.id || idx} className="bg-surface p-3 rounded-lg border border-border hover:border-indigo-500/30 transition-colors">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 rounded-full bg-indigo-500/20 flex items-center justify-center text-[8px] font-bold text-indigo-400">
-                                            {c.usuario?.nome ? c.usuario.nome.substring(0,1).toUpperCase() : '?'}
-                                        </div>
-                                        <span className="text-xs font-bold text-foreground">{c.usuario?.nome || 'Usuário'}</span>
-                                    </div>
-                                    <span className="text-[10px] text-text-muted">{new Date(c.dt_insert).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' })}</span>
-                                </div>
-                                <p className="text-sm text-gray-400 ml-6 whitespace-pre-wrap break-words">{c.texto}</p>
-                            </div>
+                        listaComentarios.map((c: any) => (
+                            <ItemComentario 
+                                key={c.id || Math.random()} // Use ID se tiver
+                                comentario={c}
+                                usuarioLogadoId={usuarioLogadoId}
+                                onDeleteSuccess={(idDeletado) => {
+                                    // Remove da lista visualmente na hora
+                                    setListaComentarios(prev => prev.filter(item => item.id !== idDeletado))
+                                }}
+                            />
                         ))
                     )}
                 </div>

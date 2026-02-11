@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import MinhasTarefasView from '@/components/MinhasTarefasView'
+import { auth } from '@/auth' // <--- IMPORTADO
 
-// 1. FORÇA O NEXT A RECALCULAR A PÁGINA EM CADA ACESSO
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -12,26 +12,29 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
   const searchParams = await props.searchParams;
   const view = searchParams.view || 'semana';
 
-  // 2. CORREÇÃO DE FUSO HORÁRIO
+  // --- 1. BUSCAR USUÁRIO PARA PEGAR O ID ---
+  const session = await auth()
+  let usuarioId = ''
+  if (session?.user?.email) {
+      const user = await prisma.usuario.findUnique({ where: { email: session.user.email }})
+      if (user) usuarioId = user.id
+  }
+  // -----------------------------------------
+
   const now = new Date();
   const offsetBrasil = -3; 
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const dataBrasil = new Date(utc + (3600000 * offsetBrasil));
 
   const hoje = new Date(dataBrasil);
-  
-  // 🔥 CORREÇÃO CRÍTICA AQUI: 🔥
-  // Usamos 12:00 (Meio-dia) em vez de 00:00.
-  // Motivo: Se usarmos 00:00 UTC, ao chegar no navegador (Brasil -3h), vira 21:00 do dia ANTERIOR.
-  // Usando 12:00, vira 09:00 da manhã do MESMO dia.
   hoje.setHours(12, 0, 0, 0);
 
   let dataInicio = new Date(hoje);
   let dataFim = new Date(hoje);
 
   if (view === 'mes') {
-    dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 12, 0, 0); // Fixa 12:00
-    dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 12, 0, 0); // Fixa 12:00
+    dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 12, 0, 0);
+    dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 12, 0, 0);
   } else {
     const diaSemana = hoje.getDay(); 
     dataInicio = new Date(hoje);
@@ -41,17 +44,13 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     dataFim.setDate(hoje.getDate() + (6 - diaSemana));
   }
   
-  // Para o BANCO DE DADOS, mantemos a busca do dia completo em UTC
-  // Aqui usamos os componentes (Dia/Mes/Ano) da data calculada acima para criar o intervalo absoluto
   const dataInicioUTC = new Date(Date.UTC(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate(), 0, 0, 0));
   const dataFimUTC = new Date(Date.UTC(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59));
 
   const tarefas = await prisma.tarefa.findMany({
     where: {
        dt_vencimento: { gte: dataInicioUTC, lte: dataFimUTC }, 
-       projeto: {
-         ativo: true 
-      }
+       projeto: { ativo: true }
     },
     orderBy: { dt_vencimento: 'asc' },
     include: {
@@ -111,9 +110,10 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
             usuarios={usuarios} 
             tituloPagina="Sprint Geral"
             enableCalendarNavigation={false} 
-            // Agora enviamos a data com 12:00, que chega no Brasil como 09:00 (Mesmo dia!)
             initialCalendarDate={dataInicio}
-            calendarViewMode={view === 'mes' ? 'MES' : 'SEMANA'} 
+            calendarViewMode={view === 'mes' ? 'MES' : 'SEMANA'}
+            // --- CORREÇÃO AQUI ---
+            usuarioLogadoId={usuarioId}
           />
       </div>
     </div>

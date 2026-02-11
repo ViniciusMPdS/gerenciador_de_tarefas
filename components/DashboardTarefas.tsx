@@ -202,6 +202,8 @@ export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, proj
             tarefa={tarefaSelecionada}
             usuarios={usuariosDisponiveis}
             projetos={projetosDisponiveis}
+            usuarioLogadoId={usuarioId}
+
         />
 
         {/* --- MODAL DE CONCLUSÃO --- */}

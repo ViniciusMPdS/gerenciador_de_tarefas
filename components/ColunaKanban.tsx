@@ -15,6 +15,7 @@ interface Props {
   index?: number
   moveColuna?: (dragIndex: number, hoverIndex: number) => void
   onDropColuna?: () => void
+  usuarioId: string
 }
 
 // Tipos de Item para diferenciar o arraste
@@ -30,7 +31,8 @@ export default function ColunaKanban({
   projetoId, 
   index, 
   moveColuna,
-  onDropColuna
+  onDropColuna,
+  usuarioId
 }: Props) {
   const [isUpdating, setIsUpdating] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -123,7 +125,8 @@ export default function ColunaKanban({
             <CardKanban 
               key={tarefa.id} 
               tarefa={tarefa} 
-              usuarios={usuarios} 
+              usuarios={usuarios}
+              usuarioId={usuarioId}
             />
           ))}
           

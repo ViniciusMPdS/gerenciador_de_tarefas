@@ -2,12 +2,29 @@ import { prisma } from '@/lib/prisma'
 import MinhasTarefasView from '@/components/MinhasTarefasView' 
 import ModalConfigProjeto from '@/components/ModalConfigProjeto'
 import ModalCriarTarefa from '@/components/ModalCriarTarefa' 
-import BotaoStatusProjeto from '@/components/BotaoStatusProjeto' // <--- IMPORTAR
+import BotaoStatusProjeto from '@/components/BotaoStatusProjeto'
+import { auth } from '@/auth'
+import { redirect } from 'next/navigation'
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   
-  // Touch
+  // --- BUSCAR USUÁRIO LOGADO ---
+  const session = await auth()
+  
+  if (!session?.user?.email) {
+      redirect('/login')
+  }
+
+  const usuarioLogado = await prisma.usuario.findUnique({
+      where: { email: session.user.email }
+  })
+
+  if (!usuarioLogado) {
+      redirect('/login')
+  }
+
+  // Touch (Atualiza data de acesso)
   await prisma.projeto.update({
     where: { id },
     data: { dt_acesso: new Date() }
@@ -26,24 +43,21 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
 
   if (!projeto) return <div>Projeto não encontrado</div>
 
-  // 2. Busca Tarefas (CORRIGIDO)
+  // 2. Busca Tarefas
   const tarefas = await prisma.tarefa.findMany({
     where: { projeto_id: id },
     include: { 
       usuario: true,
       coluna: true,
-      // --- ADICIONADO: Trazer os dados das tabelas auxiliares ---
       prioridade: true,   
       dificuldade: true,
-      // ---------------------------------------------------------
       anexos: true,
       comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } 
     },
-    // --- CORRIGIDO: Ordenar pelo ID da prioridade (3=Alta vem primeiro) ---
     orderBy: { prioridade_id: 'desc' }
   })
 
-  // 3. Busca Usuários
+  // 3. Busca Usuários (Para o dropdown de criar tarefa)
   const usuarios = await prisma.usuario.findMany()
 
   // 4. Biblioteca Geral
@@ -62,7 +76,6 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
              <h1 className={`text-2xl font-bold ${projeto.ativo ? 'text-foreground' : 'text-gray-400 line-through'}`}>
                 {projeto.nome}
              </h1>
-             {/* --- NOVO BOTÃO AQUI --- */}
              <BotaoStatusProjeto projetoId={projeto.id} ativo={projeto.ativo} />
           </div>
           <p className="text-text-muted text-sm mt-1">{projeto.descricao || 'Sem descrição'}</p>
@@ -72,7 +85,6 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Só permite criar tarefa se estiver ATIVO (opcional, mas recomendado) */}
           {projeto.ativo && (
             <>
                 <ModalConfigProjeto 
@@ -108,6 +120,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
             agrupamento="COLUNA" 
             esconderFiltroProjeto={true} 
             enableCalendarNavigation={true} 
+            usuarioLogadoId={usuarioLogado.id}
           />
         )}
 
