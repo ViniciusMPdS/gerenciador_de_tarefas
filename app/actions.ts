@@ -287,7 +287,7 @@ export async function editarTarefa(formData: FormData) {
   // Recomendado migrar para atualizarTarefa para ter logs
 }
 
-export async function adicionarComentario(tarefaId: string, texto: string) {
+export async function adicionarComentario(tarefaId: string, texto: string, imagemUrl?: string | null) {
   const session = await auth()
   if (!session?.user?.email) return null
   
@@ -298,7 +298,8 @@ export async function adicionarComentario(tarefaId: string, texto: string) {
     data: { 
         texto, 
         tarefa_id: tarefaId, 
-        usuario_id: usuario.id 
+        usuario_id: usuario.id,
+        imagemUrl: imagemUrl || null
     },
     include: { usuario: true }
   })
