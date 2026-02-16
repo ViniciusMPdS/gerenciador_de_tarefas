@@ -142,6 +142,7 @@ model Comentario {
   usuario    Usuario  @relation(fields: [usuario_id], references: [id])
   dt_insert  DateTime @default(now())
   dt_update  DateTime @updatedAt @default(now())
+  imagemUrl  String?
 
   @@map("comentario")
 }

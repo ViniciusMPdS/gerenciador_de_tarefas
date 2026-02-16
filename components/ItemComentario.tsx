@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { excluirComentario, editarComentario } from '@/app/actions'
-import ModalConfirmacao from './ModalConfirmacao' // <--- 1. IMPORTAR SEU MODAL
+import ModalConfirmacao from './ModalConfirmacao'
+// IMPORTANTE: Importe o componente que criamos antes
+import { VisualizadorImagem } from '@/components/VisualizadorImagem' 
 
 interface Props {
   comentario: any
@@ -15,7 +17,7 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
   const [textoEditado, setTextoEditado] = useState(comentario.texto)
   
   // Controle do Modal
-  const [showModal, setShowModal] = useState(false) // <--- 2. ESTADO DO MODAL
+  const [showModal, setShowModal] = useState(false)
 
   const [isPending, startTransition] = useTransition()
 
@@ -27,8 +29,6 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
   const dataCriacao = new Date(comentario.dt_insert).getTime()
   const dataEdicao = comentario.dt_update ? new Date(comentario.dt_update).getTime() : 0
   
-  // Só consideramos editado se a data de edição for pelo menos 1 segundo maior que a criação
-  // (Isso evita falsos positivos onde o banco salva os dois com milissegundos de diferença na criação)
   const foiEditado = dataEdicao > (dataCriacao + 1000)
 
   const handleSalvarEdicao = () => {
@@ -38,24 +38,22 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
       try {
         await editarComentario(comentario.id, textoEditado, usuarioLogadoId)
         
-        // --- ATUALIZAÇÃO VISUAL IMEDIATA ---
         comentario.texto = textoEditado 
-        comentario.dt_update = new Date() // <--- ADICIONE ESTA LINHA (Atualiza a data na tela)
+        comentario.dt_update = new Date() 
         
-        setIsEditing(false) // Isso força o componente a recarregar e ler a nova data
+        setIsEditing(false)
       } catch (error) {
         alert("Erro ao editar.")
       }
     })
   }
 
-  // 3. FUNÇÃO QUE O MODAL VAI CHAMAR
   const handleConfirmarExclusao = () => {
     startTransition(async () => {
       try {
         await excluirComentario(comentario.id, usuarioLogadoId)
         onDeleteSuccess(comentario.id)
-        setShowModal(false) // Fecha o modal após sucesso
+        setShowModal(false)
       } catch (error) {
         alert("Erro ao excluir.")
       }
@@ -95,7 +93,6 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   </button>
                   
-                  {/* 4. BOTÃO LIXEIRA AGORA SÓ ABRE O MODAL */}
                   <button 
                       onClick={() => setShowModal(true)} 
                       className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
@@ -107,7 +104,7 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
           )}
         </div>
 
-        {/* ÁREA DE TEXTO */}
+        {/* ÁREA DE CONTEÚDO (Texto + Imagem) */}
         {isEditing ? (
           <div className="mt-2 animate-in fade-in">
               <textarea 
@@ -134,20 +131,30 @@ export default function ItemComentario({ comentario, usuarioLogadoId, onDeleteSu
               </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 ml-8 whitespace-pre-wrap break-words leading-relaxed">
-              {comentario.texto}
-          </p>
+          <div className="pl-8"> {/* Indentação para alinhar com o nome */}
+              
+              {/* TEXTO DO COMENTÁRIO */}
+              <p className="text-sm text-text-muted whitespace-pre-wrap break-words leading-relaxed">
+                  {comentario.texto}
+              </p>
+
+              {/* --- AQUI ENTRA O PRINT --- */}
+              {comentario.imagemUrl && (
+                  <div className="mt-2">
+                      <VisualizadorImagem url={comentario.imagemUrl} alt="Print Anexado" />
+                  </div>
+              )}
+          </div>
         )}
       </div>
 
-      {/* 5. AQUI ESTÁ O SEU MODAL LINDO */}
       <ModalConfirmacao 
           isOpen={showModal}
           onClose={() => setShowModal(false)}
-          onConfirm={handleConfirmarExclusao} // Chama a função real
+          onConfirm={handleConfirmarExclusao}
           titulo="Excluir Comentário?"
           descricao="Você tem certeza que deseja remover este comentário? Essa ação não pode ser desfeita."
-          loading={isPending} // Passa o loading da transição
+          loading={isPending}
       />
     </>
   )
