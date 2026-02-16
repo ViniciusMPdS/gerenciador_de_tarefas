@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { auth, signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import bcrypt from 'bcryptjs'
-import { Recorrencia, CampoAlterado } from '@prisma/client' // <--- ADICIONADO CampoAlterado
+import { Recorrencia, CampoAlterado } from '@prisma/client'
 import { UTApi } from "uploadthing/server";
 
 const utapi = new UTApi();
@@ -55,7 +55,6 @@ export async function toggleStatusProjeto(projetoId: string) {
 
 // --- TAREFAS ---
 
-// DTO para Criação (Tipagem Forte)
 interface CriarTarefaDTO {
   titulo: string
   descricao: string
@@ -69,12 +68,10 @@ interface CriarTarefaDTO {
 }
 
 export async function criarTarefa(data: CriarTarefaDTO) {
-  // Validação básica
   if (!data.titulo || !data.projeto_id) return 
 
   let colunaId = data.coluna_id
 
-  // Se não veio coluna, pega a primeira do projeto
   if (!colunaId) {
      const primeiraColuna = await prisma.projetoColuna.findFirst({
         where: { projeto_id: data.projeto_id },
@@ -98,7 +95,6 @@ export async function criarTarefa(data: CriarTarefaDTO) {
     },
   })
 
-  // LOG: Criação da tarefa (Opcional, mas bom para histórico completo)
   const session = await auth()
   if (session?.user?.email) {
       const userLog = await prisma.usuario.findUnique({ where: { email: session.user.email } })
@@ -119,7 +115,6 @@ export async function criarTarefa(data: CriarTarefaDTO) {
   revalidatePath(`/sprint`)
 }
 
-// DTO para Atualização
 interface AtualizarTarefaDTO {
   titulo: string
   descricao: string
@@ -131,7 +126,6 @@ interface AtualizarTarefaDTO {
   recorrencia?: Recorrencia
 }
 
-// ATUALIZADO COM SISTEMA DE LOGS INTELIGENTE
 export async function atualizarTarefa(
   tarefaId: string, 
   data: AtualizarTarefaDTO,
@@ -140,19 +134,16 @@ export async function atualizarTarefa(
   const session = await auth()
   if (!session?.user?.email) return
 
-  // 1. Identifica quem está alterando
   const quemAlterou = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   if (!quemAlterou) return
 
-  // 2. Busca o estado ATUAL (Antigo) da tarefa
   const tarefaAntiga = await prisma.tarefa.findUnique({
       where: { id: tarefaId },
       include: { prioridade: true, dificuldade: true, usuario: true, coluna: true }
   })
   if (!tarefaAntiga) return
 
-  // 3. Atualiza no Banco
-  const tarefaNova = await prisma.tarefa.update({
+  await prisma.tarefa.update({
     where: { id: tarefaId },
     data: {
       titulo: data.titulo,
@@ -166,18 +157,14 @@ export async function atualizarTarefa(
     }
   })
 
-  // 4. COMPARAÇÕES PARA O LOG (Histórico)
   const logsParaCriar = []
 
-  // Título
   if (tarefaAntiga.titulo !== data.titulo) {
       logsParaCriar.push({ campo: CampoAlterado.TITULO, antigo: tarefaAntiga.titulo, novo: data.titulo })
   }
-  // Descrição (Checa se mudou algo significativo)
   if ((tarefaAntiga.descricao || '') !== (data.descricao || '')) {
       logsParaCriar.push({ campo: CampoAlterado.DESCRICAO, antigo: null, novo: 'Alterada' })
   }
-  // Vencimento (Comparação de Datas)
   const dataAntigaISO = tarefaAntiga.dt_vencimento?.toISOString()
   const dataNovaISO = data.dt_vencimento?.toISOString()
   if (dataAntigaISO !== dataNovaISO) {
@@ -187,11 +174,9 @@ export async function atualizarTarefa(
           novo: data.dt_vencimento ? data.dt_vencimento.toLocaleDateString('pt-BR') : 'Sem data' 
       })
   }
-  // Prioridade
   if (tarefaAntiga.prioridade_id !== data.prioridade_id) {
       logsParaCriar.push({ campo: CampoAlterado.PRIORIDADE, antigo: tarefaAntiga.prioridade.nome, novo: data.prioridade_id.toString() })
   }
-  // Responsável
   if (tarefaAntiga.usuario_id !== data.usuario_id) {
       logsParaCriar.push({ 
           campo: CampoAlterado.RESPONSAVEL, 
@@ -199,9 +184,7 @@ export async function atualizarTarefa(
           novo: data.usuario_id ? 'Novo Responsável' : 'Sem dono' 
       })
   }
-  // Coluna (Etapa)
   if (tarefaAntiga.coluna_id !== data.coluna_id) {
-     // Aqui teríamos que buscar o nome da nova coluna, vamos salvar o ID ou simplificar
      logsParaCriar.push({ 
          campo: CampoAlterado.COLUNA, 
          antigo: tarefaAntiga.coluna?.nome || 'N/A', 
@@ -209,7 +192,6 @@ export async function atualizarTarefa(
      })
   }
 
-  // 5. Salva os logs em lote
   if (logsParaCriar.length > 0) {
       await prisma.historicoTarefa.createMany({
           data: logsParaCriar.map(log => ({
@@ -236,7 +218,6 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
     data: { concluida: true, dt_conclusao: new Date() }
   })
 
-  // LOG DE CONCLUSÃO
   await prisma.historicoTarefa.create({
       data: {
           tarefa_id: tarefaId,
@@ -252,7 +233,6 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
     })
   }
 
-  // --- LÓGICA DE RECORRÊNCIA ---
   if (tarefaOriginal && tarefaOriginal.recorrencia !== 'NAO' && tarefaOriginal.dt_vencimento) {
       const novaData = new Date(tarefaOriginal.dt_vencimento)
       
@@ -281,10 +261,7 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
   revalidatePath(`/sprint`)
 }
 
-// Mantido para compatibilidade
 export async function editarTarefa(formData: FormData) {
-  // ... (código legado, mantido igual se ainda usar) ...
-  // Recomendado migrar para atualizarTarefa para ter logs
 }
 
 export async function adicionarComentario(tarefaId: string, texto: string, imagemUrl?: string | null) {
@@ -292,11 +269,12 @@ export async function adicionarComentario(tarefaId: string, texto: string, image
   if (!session?.user?.email) return null
   
   const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
-  if (!texto || !tarefaId || !usuario) return null
+  if (!texto && !imagemUrl) return null // Impede comentário vazio
+  if (!tarefaId || !usuario) return null
 
   const novoComentario = await prisma.comentario.create({
     data: { 
-        texto, 
+        texto: texto || "", // Garante string vazia se for só imagem
         tarefa_id: tarefaId, 
         usuario_id: usuario.id,
         imagemUrl: imagemUrl || null
@@ -314,26 +292,22 @@ export async function adicionarComentario(tarefaId: string, texto: string, image
 export async function excluirComentario(comentarioId: string, usuarioSolicitanteId: string) {
   'use server'
 
-  // 1. Busca o comentário para ver de quem é
   const comentario = await prisma.comentario.findUnique({
     where: { id: comentarioId },
-    include: { usuario: true } // Se precisar checar role de admin
+    include: { usuario: true }
   })
 
   if (!comentario) {
     throw new Error("Comentário não encontrado.")
   }
 
-  // 2. VERIFICAÇÃO DE SEGURANÇA
-  // A lógica aqui: Só passa se o ID bater OU se for Admin (ajuste sua lógica de admin se tiver)
   const ehDono = comentario.usuario_id === usuarioSolicitanteId
-  const ehAdmin = false // TODO: Se você tiver um campo 'role' ou 'admin', coloque aqui. Ex: usuario.role === 'ADMIN'
+  const ehAdmin = false 
 
   if (!ehDono && !ehAdmin) {
     throw new Error("Você não tem permissão para excluir este comentário.")
   }
 
-  // 3. Exclui
   await prisma.comentario.delete({
     where: { id: comentarioId }
   })
@@ -353,7 +327,6 @@ export async function editarComentario(comentarioId: string, novoTexto: string, 
     throw new Error("Comentário não encontrado.")
   }
 
-  // Verifica permissão (Geralmente só o dono edita, admin só exclui, mas você decide)
   if (comentario.usuario_id !== usuarioSolicitanteId) {
     throw new Error("Apenas o autor pode editar o comentário.")
   }
@@ -362,7 +335,7 @@ export async function editarComentario(comentarioId: string, novoTexto: string, 
     where: { id: comentarioId },
     data: { 
       texto: novoTexto,
-      dt_update: new Date() // Atualiza a data de modificação
+      dt_update: new Date()
     }
   })
 
@@ -370,11 +343,9 @@ export async function editarComentario(comentarioId: string, novoTexto: string, 
   return true
 }
 
-// ATUALIZADO COM LOG DE COLUNA
 export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string, projetoId: string) {
   const session = await auth()
   
-  // 1. Busca tarefa para saber onde ela estava
   const tarefaAntiga = await prisma.tarefa.findUnique({ 
       where: { id: tarefaId },
       include: { coluna: true }
@@ -382,7 +353,6 @@ export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string
 
   if (!tarefaAntiga) return
 
-  // 2. Só move e loga se a coluna for diferente (Evita log duplicado ao soltar no mesmo lugar)
   if (tarefaAntiga.coluna_id !== novaColunaId) {
       
       await prisma.tarefa.update({
@@ -390,7 +360,6 @@ export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string
         data: { coluna_id: novaColunaId }
       })
 
-      // 3. Cria Log se tiver usuário na sessão
       if (session?.user?.email) {
           const quemMoveu = await prisma.usuario.findUnique({ where: { email: session.user.email } })
           if (quemMoveu) {
@@ -412,17 +381,14 @@ export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string
   revalidatePath(`/projeto/${projetoId}`)
 }
 
-// ATUALIZADO COM LOG DE REABERTURA/CONCLUSÃO
 export async function toggleConcluida(tarefaId: string, isConcluida: boolean, projetoId: string) {
   const session = await auth()
 
-  // 1. Atualiza
   const tarefaAtualizada = await prisma.tarefa.update({
     where: { id: tarefaId },
     data: { concluida: isConcluida, dt_conclusao: isConcluida ? new Date() : null }
   })
 
-  // 2. Log
   if (session?.user?.email) {
       const quemFez = await prisma.usuario.findUnique({ where: { email: session.user.email } })
       if (quemFez) {
@@ -430,14 +396,13 @@ export async function toggleConcluida(tarefaId: string, isConcluida: boolean, pr
               data: {
                   tarefa_id: tarefaId,
                   usuario_id: quemFez.id,
-                  campo: isConcluida ? 'CONCLUSAO' : 'REABERTURA', // <--- Usa o ENUM se tiver ou string se compatível
+                  campo: isConcluida ? 'CONCLUSAO' : 'REABERTURA',
                   valor_novo: isConcluida ? 'Concluída via Checkbox' : 'Reaberta'
               }
           })
       }
   }
 
-  // 3. Recorrência
   if (isConcluida && tarefaAtualizada.recorrencia !== 'NAO' && tarefaAtualizada.dt_vencimento) {
       const novaData = new Date(tarefaAtualizada.dt_vencimento)
       
@@ -467,9 +432,8 @@ export async function toggleConcluida(tarefaId: string, isConcluida: boolean, pr
 }
 
 export async function excluirTarefa(tarefaId: string, projetoId: string) {
-  // Apaga comentários e históricos
   await prisma.comentario.deleteMany({ where: { tarefa_id: tarefaId } })
-  await prisma.historicoTarefa.deleteMany({ where: { tarefa_id: tarefaId } }) // Limpa histórico
+  await prisma.historicoTarefa.deleteMany({ where: { tarefa_id: tarefaId } })
 
   await prisma.tarefa.delete({ where: { id: tarefaId } })
   
@@ -479,7 +443,6 @@ export async function excluirTarefa(tarefaId: string, projetoId: string) {
   revalidatePath('/')
 }
 
-// ATUALIZADO COM LOG DE DATA
 export async function atualizarDataTarefa(tarefaId: string, novaData: Date, projetoId: string) {
   const session = await auth()
   
@@ -487,7 +450,6 @@ export async function atualizarDataTarefa(tarefaId: string, novaData: Date, proj
 
   await prisma.tarefa.update({ where: { id: tarefaId }, data: { dt_vencimento: novaData } })
 
-  // Log
   if (session?.user?.email && tarefaAntiga) {
       const quemFez = await prisma.usuario.findUnique({ where: { email: session.user.email } })
       if (quemFez) {
@@ -689,6 +651,34 @@ export async function toggleStatusUsuario(usuarioAlvoId: string) {
   revalidatePath('/configuracoes/usuarios')
 }
 
+// --- NOVA FUNÇÃO: ALTERAR SENHA (OWNER) ---
+export async function alterarSenhaUsuario(usuarioId: string, novaSenha: string) {
+  const session = await auth()
+  
+  // 1. Verificação de Segurança
+  const solicitante = await prisma.usuario.findUnique({ where: { email: session?.user?.email || '' } })
+  if (solicitante?.role !== 'OWNER') {
+      throw new Error("Apenas o OWNER pode alterar senhas.")
+  }
+
+  // 2. Validação
+  if (!novaSenha || novaSenha.trim() === '') {
+      throw new Error("A senha não pode ser vazia.")
+  }
+
+  // 3. Hash
+  const hashedPassword = await bcrypt.hash(novaSenha, 10)
+
+  // 4. Update
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { senha: hashedPassword }
+  })
+
+  revalidatePath('/configuracoes/usuarios')
+  return { success: true }
+}
+
 export async function reordenarColunas(projetoId: string, colunasIds: string[]) {
   try {
     await prisma.$transaction(
@@ -710,7 +700,6 @@ export async function reordenarColunas(projetoId: string, colunasIds: string[]) 
   }
 }
 
-
 export async function salvarAnexoNoBanco(dados: {
     nome: string,
     url: string,
@@ -718,7 +707,7 @@ export async function salvarAnexoNoBanco(dados: {
     tamanho: number,
     tarefaId: string
 }) {
-    'use server' // Garante que roda no servidor
+    'use server'
     
     const novoAnexo = await prisma.anexo.create({
         data: {
@@ -730,36 +719,30 @@ export async function salvarAnexoNoBanco(dados: {
         }
     })
 
-    // Atualiza a tela para aparecer o anexo novo
     revalidatePath('/') 
-
     return novoAnexo
 }
 
 export async function excluirAnexo(anexoId: string) {
     'use server'
 
-    const session = await auth() // Precisa pegar quem está apagando
+    const session = await auth() 
 
-    // 1. Busca dados antes de apagar (para saber o nome e a key)
     const anexo = await prisma.anexo.findUnique({
         where: { id: anexoId },
-        include: { tarefa: true } // Para pegar o ID do projeto/tarefa
+        include: { tarefa: true } 
     })
 
     if (!anexo) return
 
-    // 2. Apaga da Nuvem (UploadThing)
     try {
         await utapi.deleteFiles(anexo.key)
     } catch (error) {
         console.error("Erro storage:", error)
     }
 
-    // 3. Apaga do Banco
     await prisma.anexo.delete({ where: { id: anexoId } })
 
-    // 4. [NOVO] Gera o Log de Auditoria
     if (session?.user?.email) {
         const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
         
@@ -769,7 +752,7 @@ export async function excluirAnexo(anexoId: string) {
                     tarefa_id: anexo.tarefa_id,
                     usuario_id: usuario.id,
                     campo: 'ANEXO_REMOVIDO',
-                    valor_antigo: anexo.nome, // Salva o nome do arquivo que morreu
+                    valor_antigo: anexo.nome,
                     valor_novo: 'Excluído'
                 }
             })
@@ -782,17 +765,13 @@ export async function excluirAnexo(anexoId: string) {
 export async function atualizarImagemProjeto(projetoId: string, novaUrlImagem: string) {
     'use server'
     
-    // 1. Busca a imagem ANTIGA antes de atualizar
     const projetoAntigo = await prisma.projeto.findUnique({
         where: { id: projetoId },
         select: { imagem: true }
     })
 
-    // 2. Se existia uma imagem antiga, vamos apagá-la do Storage
     if (projetoAntigo?.imagem) {
         try {
-            // A URL do UploadThing geralmente é assim: https://utfs.io/f/CHAVE-DO-ARQUIVO
-            // Precisamos pegar só a parte final (a CHAVE)
             const keyAntiga = projetoAntigo.imagem.split('/f/')[1]
 
             if (keyAntiga) {
@@ -800,11 +779,9 @@ export async function atualizarImagemProjeto(projetoId: string, novaUrlImagem: s
             }
         } catch (error) {
             console.error("Erro ao apagar logo antiga:", error)
-            // Não paramos o fluxo aqui, pois o importante é atualizar a nova
         }
     }
 
-    // 3. Atualiza o banco com a NOVA imagem
     await prisma.projeto.update({
         where: { id: projetoId },
         data: { imagem: novaUrlImagem }

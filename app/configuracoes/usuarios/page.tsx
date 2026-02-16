@@ -1,15 +1,19 @@
-import { getUsuariosDoWorkspace, toggleStatusUsuario } from '@/app/actions'
+import { getUsuariosDoWorkspace } from '@/app/actions' // Removi o import não usado do toggle
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
-import BotaoCriarUsuario from '@/components/ModalCriarUsuario' // Vamos criar esse componente abaixo
-import BotaoStatusUsuario from '@/components/BotaoStatusUsuario' // Componente pequeno client-side
+import BotaoCriarUsuario from '@/components/ModalCriarUsuario'
+// REMOVA: import BotaoStatusUsuario ...
+import AcoesUsuario from '@/components/AcoesUsuario' // <--- IMPORTE O NOVO
 
 export default async function GestaoUsuariosPage() {
   const session = await auth()
-  const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session?.user?.email! } })
+  
+  // Melhoria de segurança: Validar se session existe antes
+  if (!session?.user?.email) redirect('/')
 
-  // Se tentar acessar pela URL e não for OWNER, chuta pra home
+  const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+
   if (usuarioLogado?.role !== 'OWNER') {
     redirect('/')
   }
@@ -61,9 +65,13 @@ export default async function GestaoUsuariosPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                   {/* Não deixa inativar o próprio OWNER */}
+                   {/* Aqui entra a lógica nova: 
+                      Se NÃO for OWNER, mostra os botões. 
+                      (Ou seja, o Owner pode editar todo mundo, menos outros Owners se existissem, 
+                      ou a si mesmo se quiser travar essa lógica)
+                   */}
                    {u.role !== 'OWNER' && (
-                      <BotaoStatusUsuario id={u.id} ativo={u.ativo} />
+                      <AcoesUsuario usuario={u} /> 
                    )}
                 </td>
               </tr>

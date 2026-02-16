@@ -8,33 +8,33 @@ datasource db {
 }
 
 model Workspace {
-  id        String    @id @default(uuid())
+  id        String    @id(map: "Workspace_pkey") @default(uuid())
   nome      String
-  colunas   Coluna[]
-  usuarios  Usuario[]
-  projetos  Projeto[]
   dt_insert DateTime  @default(now())
+  colunas   Coluna[]
+  projetos  Projeto[]
+  usuarios  Usuario[]
 
   @@map("workspace")
 }
 
 model Usuario {
-  id              String            @id @default(uuid())
+  id              String            @id(map: "Usuario_pkey") @default(uuid())
   nome            String
-  email           String            @unique
+  email           String            @unique(map: "Usuario_email_key")
   senha           String
   role            String            @default("USER")
   ativo           Boolean           @default(true)
   imagem          String?
   cargo           String?
   workspace_id    String
-  workspace       Workspace         @relation(fields: [workspace_id], references: [id])
-  projetos        Projeto[]
-  tarefas         Tarefa[]
+  dt_insert       DateTime          @default(now())
+  dt_update       DateTime          @default(now()) @updatedAt
   comentarios     Comentario[]
   acoes_historico HistoricoTarefa[]
-  dt_insert       DateTime          @default(now())
-  dt_update       DateTime          @updatedAt @default(now())
+  projetos        Projeto[]
+  tarefas         Tarefa[]
+  workspace       Workspace         @relation(fields: [workspace_id], references: [id], map: "Usuario_workspace_id_fkey")
 
   @@map("usuario")
 }
@@ -44,81 +44,74 @@ model Coluna {
   nome         String
   cor          String?
   workspace_id String
-  workspace    Workspace       @relation(fields: [workspace_id], references: [id])
+  dt_insert    DateTime        @default(now())
+  dt_update    DateTime        @default(now()) @updatedAt
+  workspace    Workspace       @relation(fields: [workspace_id], references: [id], map: "Coluna_workspace_id_fkey")
   projetos     ProjetoColuna[]
   tarefas      Tarefa[]
-  dt_insert    DateTime        @default(now())
-  dt_update    DateTime        @updatedAt @default(now())
 
   @@map("coluna")
 }
 
 model Projeto {
-  id           String          @id @default(uuid())
+  id           String          @id(map: "Projeto_pkey") @default(uuid())
   nome         String
-  descricao    String?         @db.Text
-  ativo        Boolean         @default(true)
+  descricao    String?
   workspace_id String
-  workspace    Workspace       @relation(fields: [workspace_id], references: [id])
   usuario_id   String
-  usuario      Usuario         @relation(fields: [usuario_id], references: [id])
+  dt_insert    DateTime        @default(now())
+  dt_update    DateTime        @default(now()) @updatedAt
+  dt_acesso    DateTime        @default(now())
+  ativo        Boolean         @default(true)
+  imagem       String?
+  usuario      Usuario         @relation(fields: [usuario_id], references: [id], map: "Projeto_usuario_id_fkey")
+  workspace    Workspace       @relation(fields: [workspace_id], references: [id], map: "Projeto_workspace_id_fkey")
   colunas      ProjetoColuna[]
   tarefas      Tarefa[]
-  dt_insert    DateTime        @default(now())
-  dt_update    DateTime        @updatedAt @default(now())
-  dt_acesso    DateTime        @default(now())
-  imagem       String?
 
   @@map("projeto")
 }
 
 model ProjetoColuna {
   projeto_id String
-  projeto    Projeto @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
   coluna_id  String
-  coluna     Coluna  @relation(fields: [coluna_id], references: [id], onDelete: Cascade)
   ordem      Int
+  coluna     Coluna  @relation(fields: [coluna_id], references: [id], onDelete: Cascade, map: "ProjetoColuna_coluna_id_fkey")
+  projeto    Projeto @relation(fields: [projeto_id], references: [id], onDelete: Cascade, map: "ProjetoColuna_projeto_id_fkey")
 
-  @@id([projeto_id, coluna_id])
+  @@id([projeto_id, coluna_id], map: "ProjetoColuna_pkey")
   @@map("projeto_coluna")
 }
 
-enum Recorrencia {
-  NAO
-  DIARIAMENTE
-  SEMANALMENTE
-  MENSALMENTE
-}
-
 model Tarefa {
-  id             String           @id @default(cuid())
+  id             String            @id(map: "Tarefa_pkey") @default(uuid())
   titulo         String
   descricao      String?
-  concluida      Boolean          @default(false)
+  concluida      Boolean           @default(false)
   dt_vencimento  DateTime?
   dt_conclusao   DateTime?
-  dt_insert      DateTime         @default(now())
-  dt_update      DateTime         @updatedAt @default(now())
+  dt_insert      DateTime          @default(now())
+  dt_update      DateTime          @default(now()) @updatedAt
   prioridade_id  Int
-  prioridade     OpcaoPrioridade  @relation(fields: [prioridade_id], references: [id])
   dificuldade_id Int
-  dificuldade    OpcaoDificuldade @relation(fields: [dificuldade_id], references: [id])
   projeto_id     String
-  projeto        Projeto          @relation(fields: [projeto_id], references: [id], onDelete: Cascade)
   coluna_id      String?
-  coluna         Coluna?          @relation(fields: [coluna_id], references: [id])
   usuario_id     String?
-  usuario        Usuario?         @relation(fields: [usuario_id], references: [id])
+  recorrencia    Recorrencia       @default(NAO)
+  anexos         Anexo[]
   comentarios    Comentario[]
   historico      HistoricoTarefa[]
-  recorrencia    Recorrencia      @default(NAO)
-  anexos         Anexo[]
+  coluna         Coluna?           @relation(fields: [coluna_id], references: [id], map: "Tarefa_coluna_id_fkey")
+  dificuldade    OpcaoDificuldade  @relation(fields: [dificuldade_id], references: [id], map: "Tarefa_dificuldade_id_fkey")
+  prioridade     OpcaoPrioridade   @relation(fields: [prioridade_id], references: [id], map: "Tarefa_prioridade_id_fkey")
+  projeto        Projeto           @relation(fields: [projeto_id], references: [id], onDelete: Cascade, map: "Tarefa_projeto_id_fkey")
+  usuario        Usuario?          @relation(fields: [usuario_id], references: [id], map: "Tarefa_usuario_id_fkey")
 
   @@map("tarefa")
 }
 
 model OpcaoPrioridade {
-  id      Int      @id
+  id      Int      @id(map: "OpcaoPrioridade_pkey")
   nome    String
   tarefas Tarefa[]
 
@@ -126,7 +119,7 @@ model OpcaoPrioridade {
 }
 
 model OpcaoDificuldade {
-  id      Int      @id
+  id      Int      @id(map: "OpcaoDificuldade_pkey")
   nome    String
   tarefas Tarefa[]
 
@@ -134,17 +127,53 @@ model OpcaoDificuldade {
 }
 
 model Comentario {
-  id         String   @id @default(uuid())
-  texto      String   @db.Text
+  id         String   @id(map: "Comentario_pkey") @default(uuid())
+  texto      String
   tarefa_id  String
-  tarefa     Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
   usuario_id String
-  usuario    Usuario  @relation(fields: [usuario_id], references: [id])
   dt_insert  DateTime @default(now())
-  dt_update  DateTime @updatedAt @default(now())
+  dt_update  DateTime @default(now()) @updatedAt
+  tarefa     Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade, map: "Comentario_tarefa_id_fkey")
+  usuario    Usuario  @relation(fields: [usuario_id], references: [id], map: "Comentario_usuario_id_fkey")
   imagemUrl  String?
 
   @@map("comentario")
+}
+
+model HistoricoTarefa {
+  id           String        @id(map: "HistoricoTarefa_pkey") @default(uuid())
+  tarefa_id    String
+  usuario_id   String?
+  campo        CampoAlterado
+  valor_antigo String?
+  valor_novo   String?
+  dt_evento    DateTime      @default(now())
+  tarefa       Tarefa        @relation(fields: [tarefa_id], references: [id], onDelete: Cascade, map: "HistoricoTarefa_tarefa_id_fkey")
+  usuario      Usuario?      @relation(fields: [usuario_id], references: [id], map: "HistoricoTarefa_usuario_id_fkey")
+
+  @@index([dt_evento], map: "HistoricoTarefa_dt_evento_idx")
+  @@index([tarefa_id], map: "HistoricoTarefa_tarefa_id_idx")
+  @@map("historico_tarefa")
+}
+
+model Anexo {
+  id        String   @id @default(uuid())
+  nome      String
+  url       String
+  key       String
+  tamanho   Int
+  dt_upload DateTime @default(now())
+  tarefa_id String
+  tarefa    Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade, map: "Anexo_tarefa_id_fkey")
+
+  @@map("anexo")
+}
+
+enum Recorrencia {
+  NAO
+  DIARIAMENTE
+  SEMANALMENTE
+  MENSALMENTE
 }
 
 enum CampoAlterado {
@@ -159,33 +188,4 @@ enum CampoAlterado {
   REABERTURA
   RESPONSAVEL
   ANEXO_REMOVIDO
-}
-
-model HistoricoTarefa {
-  id           String        @id @default(uuid())
-  tarefa_id    String
-  tarefa       Tarefa        @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
-  usuario_id   String?
-  usuario      Usuario?      @relation(fields: [usuario_id], references: [id])
-  campo        CampoAlterado
-  valor_antigo String?
-  valor_novo   String?
-  dt_evento    DateTime      @default(now())
-
-  @@index([tarefa_id])
-  @@index([dt_evento])
-  @@map("historico_tarefa")
-}
-
-model Anexo {
-  id        String   @id @default(uuid())
-  nome      String
-  url       String
-  key       String
-  tamanho   Int
-  dt_upload DateTime @default(now())
-  tarefa_id String
-  tarefa    Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade)
-
-  @@map("anexo")
 }
