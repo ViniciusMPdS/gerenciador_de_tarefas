@@ -2,60 +2,59 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import ModalTarefa from './ModalTarefa'
+import ModalConclusao from './ModalConclusao'
+import { concluirTarefaComComentario } from '@/app/actions'
 
 interface Props {
   tarefas: any[]
   usuarioNome: string
+  usuarioId: string
+  projetosDisponiveis: any[] 
+  usuariosDisponiveis: any[]
 }
 
-export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
+export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, projetosDisponiveis, usuariosDisponiveis }: Props) {
   const [abaAtiva, setAbaAtiva] = useState<'PROXIMAS' | 'ATRASADAS'>('PROXIMAS')
+  
+  // Estado para controlar qual tarefa abrir (Edição)
+  const [tarefaSelecionada, setTarefaSelecionada] = useState<any>(null)
 
-  // 1. DATA DE HOJE (ZERADA LOCALMENTE)
+  // --- NOVOS ESTADOS PARA CONCLUSÃO ---
+  const [tarefaParaConcluir, setTarefaParaConcluir] = useState<any>(null)
+  const [isSavingConclusao, setIsSavingConclusao] = useState(false)
+
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
 
-  // 2. DATA LIMITE (HOJE + 4 DIAS)
   const limite = new Date(hoje)
   limite.setDate(hoje.getDate() + 4)
   limite.setHours(23, 59, 59, 999)
 
-  // --- O SEGREDO: FORÇAR DATA LOCAL ---
-  // Pega "2026-01-22T00:00..." e cria "2026-01-22 00:00" NO SEU FUSO
   const forcarDataLocal = (dataOriginal: any) => {
     if (!dataOriginal) return null;
 
     let dataString = '';
     
-    // Garante que temos a string ISO (YYYY-MM-DD...)
     if (dataOriginal instanceof Date) {
         dataString = dataOriginal.toISOString();
     } else {
         dataString = String(dataOriginal);
     }
 
-    // Pega apenas a parte da data: "2026-01-22"
     const [ano, mes, dia] = dataString.split('T')[0].split('-').map(Number);
-
-    // Cria a data usando o construtor local (Ano, Mes-1, Dia)
-    // Isso ignora se era UTC ou não. Se estava escrito 22, vira dia 22 aqui.
     return new Date(ano, mes - 1, dia, 0, 0, 0);
   }
 
-  // 3. FILTROS
   const tarefasAtrasadas = tarefas.filter(t => {
       const dataTarefa = forcarDataLocal(t.dt_vencimento);
       if (!dataTarefa) return false;
-      
-      // Menor que hoje
       return dataTarefa.getTime() < hoje.getTime();
   })
 
   const tarefasProximas = tarefas.filter(t => {
     const dataTarefa = forcarDataLocal(t.dt_vencimento);
     if (!dataTarefa) return false;
-    
-    // Entre Hoje e Limite
     return dataTarefa.getTime() >= hoje.getTime() && dataTarefa.getTime() <= limite.getTime();
   });
 
@@ -71,9 +70,7 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
     if (diffDays === 0) return 'Hoje'
     if (diffDays === 1) return 'Amanhã'
     
-    // Se for nos próximos 7 dias, mostra o dia da semana (ex: Quinta-feira)
     if (diffDays > 1 && diffDays < 7) {
-        // Ajuste visual para garantir nome da semana correto
         const diaSemana = new Date(dataTarefa);
         diaSemana.setHours(12); 
         return diaSemana.toLocaleDateString('pt-BR', { weekday: 'long' });
@@ -82,10 +79,35 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
     return dataTarefa.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
   }
 
-  const getPriorityColor = (p: string) => {
-    if(p === 'ALTA') return 'bg-red-100 text-red-700'
-    if(p === 'MEDIA') return 'bg-orange-100 text-orange-700'
+  const getPriorityColor = (p: any) => {
+    const id = typeof p === 'object' ? p?.id : p;
+    
+    if(id === 3 || p === 'ALTA') return 'bg-red-100 text-red-700'
+    if(id === 2 || p === 'MEDIA') return 'bg-orange-100 text-orange-700'
     return 'bg-green-100 text-green-700'
+  }
+
+  // --- LÓGICA DE ABRIR O MODAL DE CONCLUSÃO ---
+  const solicitarConclusao = (e: React.MouseEvent, tarefa: any) => {
+    e.stopPropagation() // Impede abrir a edição
+    setTarefaParaConcluir(tarefa)
+  }
+
+  // --- LÓGICA DE SALVAR A CONCLUSÃO ---
+  const handleConfirmarConclusao = async (comentario: string) => {
+    if (!tarefaParaConcluir) return
+
+    setIsSavingConclusao(true)
+    
+    await concluirTarefaComComentario(
+        tarefaParaConcluir.id, 
+        comentario, 
+        tarefaParaConcluir.projeto_id, 
+        usuarioId
+    )
+    
+    setIsSavingConclusao(false)
+    setTarefaParaConcluir(null)
   }
 
   return (
@@ -126,7 +148,6 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
             {listaAtual.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
                     <div className="mb-3 p-4 bg-surface/50 rounded-full">
-                         {/* Ícone de Calendário Vazio */}
                         <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -140,27 +161,60 @@ export default function DashboardTarefas({ tarefas, usuarioNome }: Props) {
             ) : (
                 <div className="space-y-1">
                 {listaAtual.map(t => (
-                    <div key={t.id} className="flex items-center gap-3 p-3 hover:bg-surface/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-gray-100">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${abaAtiva === 'ATRASADAS' ? 'border-red-300' : 'border-gray-300 group-hover:border-indigo-400'}`}></div>
+                    <div 
+                        key={t.id} 
+                        // --- CLIQUE PARA ABRIR O MODAL DE EDIÇÃO ---
+                        onClick={() => setTarefaSelecionada(t)}
+                        className="flex items-center gap-3 p-3 hover:bg-surface/50 rounded-xl transition-colors group cursor-pointer border border-transparent hover:border-gray-100"
+                    >
+                        {/* --- CÍRCULO DE CONCLUSÃO (ESQUERDA) --- */}
+                        <div 
+                            onClick={(e) => solicitarConclusao(e, t)}
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center cursor-pointer hover:bg-green-500/20 transition-all ${
+                                abaAtiva === 'ATRASADAS' ? 'border-red-300' : 'border-gray-300 group-hover:border-indigo-400'
+                            }`}
+                            title="Concluir tarefa"
+                        ></div>
                     
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{t.titulo}</p>
-                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider truncate flex items-center gap-1">
-                            {t.projeto?.nome || 'Sem projeto'} • 
-                            <span className={abaAtiva === 'ATRASADAS' ? "text-red-500 font-bold" : (formatarDataAmigavel(t.dt_vencimento) === 'Hoje' ? "text-green-600 font-bold" : "")}>
-                                {formatarDataAmigavel(t.dt_vencimento)}
-                            </span>
-                        </p>
-                    </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{t.titulo}</p>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider truncate flex items-center gap-1">
+                                {t.projeto?.nome || 'Sem projeto'} • 
+                                <span className={abaAtiva === 'ATRASADAS' ? "text-red-500 font-bold" : (formatarDataAmigavel(t.dt_vencimento) === 'Hoje' ? "text-green-600 font-bold" : "")}>
+                                    {formatarDataAmigavel(t.dt_vencimento)}
+                                </span>
+                            </p>
+                        </div>
 
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${getPriorityColor(t.prioridade)}`}>
-                        {t.prioridade}
-                    </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${getPriorityColor(t.prioridade || t.prioridade_id)}`}>
+                            {typeof t.prioridade === 'object' ? t.prioridade.nome : t.prioridade}
+                        </span>
                     </div>
                 ))}
                 </div>
             )}
         </div>
+
+        {/* MODAL DE EDIÇÃO */}
+        <ModalTarefa 
+            isOpen={!!tarefaSelecionada}
+            onClose={() => setTarefaSelecionada(null)}
+            tarefa={tarefaSelecionada}
+            usuarios={usuariosDisponiveis}
+            projetos={projetosDisponiveis}
+            usuarioLogadoId={usuarioId}
+
+        />
+
+        {/* --- MODAL DE CONCLUSÃO --- */}
+        <ModalConclusao
+            key={tarefaParaConcluir}
+            tarefaId={tarefaParaConcluir?.id}
+            isOpen={!!tarefaParaConcluir}
+            onClose={() => setTarefaParaConcluir(null)}
+            onConfirm={handleConfirmarConclusao}
+            isSaving={isSavingConclusao}
+        />
     </div>
   )
 }

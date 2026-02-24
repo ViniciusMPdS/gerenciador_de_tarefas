@@ -8,9 +8,10 @@ interface Props {
   tarefa: any
   usuarios: any[]
   projetos: any[]
+  usuarioId: string
 }
 
-export default function ItemListaTarefa({ tarefa, usuarios, projetos }: Props) {
+export default function ItemListaTarefa({ tarefa, usuarios, projetos, usuarioId }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -83,6 +84,7 @@ export default function ItemListaTarefa({ tarefa, usuarios, projetos }: Props) {
           projetos={projetos}
           isOpen={showModal}
           onClose={() => setShowModal(false)} 
+          usuarioLogadoId={usuarioId}
         />
       )}
     </>

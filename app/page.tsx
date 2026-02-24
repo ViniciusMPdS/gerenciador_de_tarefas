@@ -1,132 +1,156 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import DashboardTarefas from '@/components/DashboardTarefas'
-import { auth } from '@/auth' // Importe o auth
+import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import AvatarProjeto from '@/components/AvatarProjeto'
+
+// 1. FORÇA O NEXT A NÃO FAZER CACHE (CRÍTICO PARA DATAS)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function Home() {
   const session = await auth()
 
-  // Se não tiver sessão (por segurança), manda pro login
   if (!session?.user?.email) {
     redirect('/login')
   }
 
-  // BUSCA O USUÁRIO PELO EMAIL DA SESSÃO
   const usuario = await prisma.usuario.findUnique({
     where: { email: session.user.email }
   })
   
-  const saudacao = new Date().getHours() < 12 ? 'Bom dia' : 'Boa tarde'
-  
+  // --- CORREÇÃO DE FUSO HORÁRIO (A MÁGICA) ---
+  const now = new Date();
+  const offsetBrasil = -3; 
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const dataBrasil = new Date(utc + (3600000 * offsetBrasil));
+
+  const horaAtual = dataBrasil.getHours();
+  const saudacao = horaAtual < 12 ? 'Bom dia' : (horaAtual < 18 ? 'Boa tarde' : 'Boa noite');
+
   let minhasTarefas: any[] = []
 
   if (usuario) {
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    
-    // --- CORREÇÃO DE FUSO NO SERVIDOR (PRISMA) ---
-    // O Prisma envia datas em UTC. Se filtrarmos pela meia-noite local (Brasil),
-    // estamos filtrando por 03:00 UTC, perdendo tudo que está marcado como 00:00 UTC (Tarefas de hoje).
-    // Solução: Criamos uma data que representa a meia-noite UTC absoluta do dia de hoje.
-    const hojeUTC = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()));
+    const hojeBrasil = new Date(dataBrasil);
+    hojeBrasil.setHours(0, 0, 0, 0);
 
-    // 1. Busca ATRASADAS (Estritamente menores que hoje UTC)
+    const hojeUTC = new Date(Date.UTC(hojeBrasil.getFullYear(), hojeBrasil.getMonth(), hojeBrasil.getDate(), 3, 0, 0));
+
     const atrasadas = await prisma.tarefa.findMany({
       where: { 
         usuario_id: usuario.id,
         concluida: false,
-        dt_vencimento: { lt: hojeUTC } 
+        dt_vencimento: { lt: hojeUTC },
+        projeto: { ativo: true }
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
-      include: { projeto: true }
+      include: { projeto: true, usuario: true, prioridade: true, dificuldade: true, comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } }
     })
 
-    // 2. Busca FUTURAS (Maiores ou iguais a hoje UTC - Isso inclui o 00:00:00 de hoje)
     const futuras = await prisma.tarefa.findMany({
       where: { 
         usuario_id: usuario.id,
         concluida: false,
-        dt_vencimento: { gte: hojeUTC } 
+        dt_vencimento: { gte: hojeUTC },
+        projeto: { ativo: true }
       },
       take: 50, 
       orderBy: { dt_vencimento: 'asc' },
-      include: { projeto: true }
+      include: { projeto: true, usuario: true, prioridade: true, dificuldade: true, comentarios: { include: { usuario: true }, orderBy: { dt_insert: 'asc' } } }
     })
 
     minhasTarefas = [...atrasadas, ...futuras]
   }
 
   const projetosRecentes = await prisma.projeto.findMany({
+    where: { ativo: true },
     orderBy: { dt_acesso: 'desc' },
     take: 6,
     include: { _count: { select: { tarefas: true } } }
   })
 
+  // --- NOVAS BUSCAS NECESSÁRIAS PARA O MODAL ---
+  const todosProjetos = await prisma.projeto.findMany({
+    where: { workspace_id: usuario?.workspace_id!, ativo: true },
+    include: {
+        colunas: {
+            include: { coluna: true },
+            orderBy: { ordem: 'asc' }
+        }
+    }
+  })
+
+  const todosUsuarios = await prisma.usuario.findMany({
+    where: { workspace_id: usuario?.workspace_id! },
+    orderBy: { nome: 'asc' }
+  })
+
   return (
-    <div className="p-8 max-w-7xl mx-auto min-h-screen">
+    <div className="p-2 lg:p-8 max-w-full lg:max-w-7xl mx-auto min-h-screen">
       
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">
+      <header className="mb-4 lg:mb-8">
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
           {saudacao}, {usuario ? usuario.nome.split(' ')[0] : 'Visitante'}!
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Aqui está o resumo do seu dia.</p>
+        <p className="text-gray-500 text-xs lg:text-sm mt-1">
+           Aqui está o resumo do seu dia. 
+        </p>
       </header>
 
-      {/* GRID PRINCIPAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        
-        {/* ESQUERDA: WIDGET DE TAREFAS */}
-        <DashboardTarefas tarefas={minhasTarefas} usuarioNome={usuario?.nome || 'Eu'} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start">
+        <DashboardTarefas 
+          tarefas={minhasTarefas} 
+          usuarioNome={usuario?.nome || 'Eu'} 
+          usuarioId={usuario?.id || ''}
+          projetosDisponiveis={todosProjetos}
+          usuariosDisponiveis={todosUsuarios}
+        />
 
-        {/* DIREITA: WIDGET DE PROJETOS RECENTES */}
         <div className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col h-[500px]">
-            {/* Header */}
-            <div className="p-5 border-b border-gray-100 flex flex-col gap-4 bg-surface/50/50 min-h-[105px] justify-center">
+            <div className="p-4 lg:p-5 border-b border-gray-100 flex flex-col gap-3 lg:gap-4 bg-surface/50 min-h-[80px] lg:min-h-[105px] justify-center">
                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold">
-                           📂
-                        </div>
-                        <h2 className="font-bold text-foreground">Projetos Recentes</h2>
+                    <div className="flex items-center gap-2 lg:gap-3">
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm lg:text-base">📂</div>
+                        <h2 className="font-bold text-foreground text-sm lg:text-base">Projetos Recentes</h2>
                     </div>
-                    <Link href="/projetos" className="text-xs font-medium text-gray-400 hover:text-indigo-600">Ver biblioteca</Link>
+                    <Link href="/projetos" className="text-[10px] lg:text-xs font-medium text-gray-400 hover:text-indigo-600">Ver biblioteca</Link>
                 </div>
             </div>
 
-            {/* Conteúdo Grid */}
-            <div className="flex-1 overflow-y-auto p-4">
-                 
+            <div className="flex-1 overflow-y-auto p-3 lg:p-4">
                  {projetosRecentes.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
                         <span className="text-4xl mb-2">📭</span>
-                        <p className="text-sm">Nenhum projeto acessado recentemente.</p>
+                        <p className="text-xs lg:text-sm">Nenhum projeto acessado recentemente.</p>
                         <Link href="/projetos" className="text-xs text-indigo-500 mt-2 hover:underline">Ir para Biblioteca</Link>
                     </div>
                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
                         {projetosRecentes.map(projeto => (
-                        <Link 
-                            key={projeto.id} 
-                            href={`/projeto/${projeto.id}`}
-                            className="flex flex-col justify-center p-4 rounded-xl bg-surface border border-border shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-28 group"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                    {projeto.nome.substring(0, 1).toUpperCase()}
-                                </div>
-                                <h3 className="font-bold text-foreground text-sm truncate w-full" title={projeto.nome}>{projeto.nome}</h3>
+                        <Link key={projeto.id} href={`/projeto/${projeto.id}`} className="flex flex-col justify-center p-3 lg:p-4 rounded-xl bg-surface border border-border shadow-sm hover:shadow-md hover:border-indigo-300 transition-all h-24 lg:h-28 group">
+                            
+                            <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
+                                {/* MUDANÇA AQUI: Removi a div que envolvia e coloquei o readonly */}
+                                <AvatarProjeto 
+                                    projetoId={projeto.id} 
+                                    imagem={projeto.imagem} 
+                                    nome={projeto.nome}
+                                    tamanho="w-8 h-8 lg:w-10 lg:h-10" // Tamanho responsivo
+                                    readonly={true} // <--- TRAVA A EDIÇÃO
+                                />
+                                
+                                <h3 className="font-bold text-foreground text-xs lg:text-sm truncate w-full" title={projeto.nome}>
+                                    {projeto.nome}
+                                </h3>
                             </div>
+
                             <div className="flex justify-between items-end mt-1">
                                 <p className="text-[10px] text-gray-400">
-                                    {new Date(projeto.dt_acesso).toDateString() === new Date().toDateString() 
-                                        ? 'Acessado hoje' 
-                                        : new Date(projeto.dt_acesso).toLocaleDateString()}
+                                    {new Date(projeto.dt_acesso).toDateString() === new Date().toDateString() ? 'Hoje' : new Date(projeto.dt_acesso).toLocaleDateString('pt-BR')}
                                 </p>
-                                <span className="text-[10px] bg-surface/50 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">
-                                    {projeto._count.tarefas} tarefas
-                                </span>
+                                <span className="text-[9px] lg:text-[10px] bg-surface/50 text-gray-600 px-1.5 py-0.5 rounded-full font-medium">{projeto._count.tarefas}</span>
                             </div>
                         </Link>
                         ))}
@@ -134,7 +158,6 @@ export default async function Home() {
                  )}
             </div>
         </div>
-
       </div>
     </div>
   )

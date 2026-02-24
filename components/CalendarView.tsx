@@ -34,6 +34,9 @@ export default function CalendarView({
   const mudarPeriodo = (direcao: number) => {
     const novaData = new Date(dataAtual)
     if (modo === 'MES') {
+        // --- CORREÇÃO IMPORTANTE MANTIDA ---
+        // Fixa dia 1 antes de somar mês para evitar pular Fevereiro (ex: 30 Jan -> 01 Mar)
+        novaData.setDate(1) 
         novaData.setMonth(novaData.getMonth() + direcao)
     } else {
         novaData.setDate(novaData.getDate() + (direcao * 7))
@@ -41,25 +44,20 @@ export default function CalendarView({
     setDataAtual(novaData)
   }
 
-  const irParaHoje = () => setDataAtual(new Date())
+  const irParaHoje = () => setDataAtual(initialDate || new Date())
 
   const nomeMesRaw = dataAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   const nomeMes = nomeMesRaw.charAt(0).toUpperCase() + nomeMesRaw.slice(1)
   
-  // --- CORREÇÃO 1: Normalizar datas para evitar virada de dia (UTC vs Local) ---
   const getDiasDoMes = () => {
     const ano = dataAtual.getFullYear()
     const mes = dataAtual.getMonth()
-    
     // Fixa dia 1 ao meio-dia para segurança de fuso
     const primeiroDia = new Date(ano, mes, 1, 12, 0, 0)
     const ultimoDia = new Date(ano, mes + 1, 0, 12, 0, 0)
     
     const dias = []
-    // Preenche vazios
     for (let i = 0; i < primeiroDia.getDay(); i++) dias.push(null)
-    
-    // Preenche dias
     for (let i = 1; i <= ultimoDia.getDate(); i++) {
         dias.push(new Date(ano, mes, i, 12, 0, 0))
     }
@@ -68,7 +66,6 @@ export default function CalendarView({
 
   const getDiasDaSemana = () => {
     const dias = []
-    // Fixa a data de referência ao meio-dia
     const diaRef = new Date(dataAtual)
     diaRef.setHours(12, 0, 0, 0)
 
@@ -79,7 +76,7 @@ export default function CalendarView({
     for (let i = 0; i < 7; i++) {
         const d = new Date(domingo)
         d.setDate(domingo.getDate() + i)
-        d.setHours(12, 0, 0, 0) // Garante 12:00
+        d.setHours(12, 0, 0, 0)
         dias.push(d)
     }
     return dias
@@ -97,9 +94,7 @@ export default function CalendarView({
         } else {
             dataTarefaISO = String(t.dt_vencimento)
         }
-        // Compara apenas YYYY-MM-DD
         const dataTarefaYMD = dataTarefaISO.split('T')[0]
-
         const ano = dia.getFullYear()
         const mes = String(dia.getMonth() + 1).padStart(2, '0')
         const d = String(dia.getDate()).padStart(2, '0')
@@ -110,7 +105,7 @@ export default function CalendarView({
   }
 
   const handleDropTarefa = async (tarefaId: string, projetoId: string, novaData: Date) => {
-    // --- CORREÇÃO 2: Garantir que o drop salve ao meio-dia ---
+    // CORREÇÃO DE FUSO: Salva ao meio-dia para evitar mudança de dia indesejada
     const dataSegura = new Date(novaData)
     dataSegura.setHours(12, 0, 0, 0)
     await atualizarDataTarefa(tarefaId, dataSegura, projetoId)
@@ -120,9 +115,9 @@ export default function CalendarView({
     <div className="flex flex-col h-full bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
       
       {/* HEADER */}
-      <div className="flex justify-between items-center p-4 border-b border-border bg-surface">
+      <div className="flex justify-between items-center p-4 border-b border-border bg-surface flex-shrink-0">
         <div className="flex items-center gap-4">
-            <h2 className="font-bold text-lg text-foreground min-w-[150px]">{nomeMes}</h2>
+            <h2 className="font-bold text-lg text-foreground min-w-[150px] capitalize">{nomeMes}</h2>
             {enableNavigation && (
                 <div className="flex items-center bg-surface-highlight rounded-lg p-0.5 border border-border">
                     <button onClick={() => mudarPeriodo(-1)} className="w-8 h-8 flex items-center justify-center hover:bg-surface rounded-md text-text-muted hover:text-foreground transition-colors">◀</button>
@@ -142,14 +137,14 @@ export default function CalendarView({
       {/* MODO MÊS */}
       {modo === 'MES' && (
         <>
-            <div className="grid grid-cols-7 border-b border-border bg-surface-highlight/30">
+            <div className="grid grid-cols-7 border-b border-border bg-surface-highlight/30 flex-shrink-0">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
                     <div key={d} className="py-2 text-center text-xs font-semibold text-text-muted uppercase tracking-wider">{d}</div>
                 ))}
             </div>
-            <div className="grid grid-cols-7 flex-1 auto-rows-fr overflow-y-auto bg-surface">
+            <div className="grid grid-cols-7 flex-1 auto-rows-[minmax(120px,1fr)] overflow-y-auto bg-surface custom-scrollbar-dark">
                 {diasRenderizados.map((dia, index) => {
-                    if (!dia) return <div key={index} className="bg-surface-highlight/10 border-b border-r border-border min-h-[100px]" />
+                    if (!dia) return <div key={index} className="bg-surface-highlight/10 border-b border-r border-border min-h-[120px]" />
                     return <CalendarDayCell key={index} dia={dia} tarefas={getTarefasDoDia(dia)} onDrop={handleDropTarefa} onClickTask={abrirModal} viewMode="MES" />
                 })}
             </div>
@@ -158,7 +153,7 @@ export default function CalendarView({
 
       {/* MODO SEMANA */}
       {modo === 'SEMANA' && (
-         <div className="flex h-full overflow-x-auto divide-x divide-border bg-surface">
+         <div className="flex h-full overflow-x-auto divide-x divide-border bg-surface custom-scrollbar-dark">
              {diasRenderizados.map((dia, index) => {
                  if (!dia) return null
                  return <CalendarDayCell key={index} dia={dia} tarefas={getTarefasDoDia(dia)} onDrop={handleDropTarefa} onClickTask={abrirModal} viewMode="SEMANA" />
@@ -178,16 +173,13 @@ function CalendarDayCell({ dia, tarefas, onDrop, onClickTask, viewMode }: any) {
 
     const hoje = new Date()
     const isHoje = dia.toDateString() === hoje.toDateString()
-
-    const bgClass = isOver 
-        ? 'bg-indigo-500/10' 
-        : (isHoje ? 'bg-indigo-500/5' : 'bg-transparent')
+    const bgClass = isOver ? 'bg-indigo-500/10' : (isHoje ? 'bg-indigo-500/5' : 'bg-transparent')
 
     if (viewMode === 'MES') {
         return (
-            <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`border-b border-r border-border p-2 min-h-[100px] flex flex-col transition-colors ${bgClass}`}>
+            <div ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>} className={`border-b border-r border-border p-2 flex flex-col transition-colors ${bgClass}`}>
                 <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isHoje ? 'bg-indigo-600 text-white' : 'text-text-muted'}`}>{dia.getDate()}</span>
-                <div className="space-y-1 overflow-y-auto custom-scrollbar-thin max-h-[80px]">
+                <div className="space-y-1 overflow-y-auto custom-scrollbar-thin flex-1 max-h-[120px]">
                     {tarefas.map((t: any) => <DraggableTaskPill key={t.id} tarefa={t} onClick={() => onClickTask(t)} />)}
                 </div>
             </div>
@@ -207,6 +199,7 @@ function CalendarDayCell({ dia, tarefas, onDrop, onClickTask, viewMode }: any) {
     )
 }
 
+// --- VISUAL RESTAURADO: Pílula Pequena ---
 function DraggableTaskPill({ tarefa, onClick }: any) {
     const [{ isDragging }, dragRef] = useDrag(() => ({
         type: 'CALENDAR_TASK', item: { id: tarefa.id, projetoId: tarefa.projeto_id },
@@ -228,6 +221,7 @@ function DraggableTaskPill({ tarefa, onClick }: any) {
     )
 }
 
+// --- VISUAL RESTAURADO: Card Grande (Exatamente o que você pediu) ---
 function DraggableTaskCard({ tarefa, onClick }: any) {
     const [{ isDragging }, dragRef] = useDrag(() => ({
         type: 'CALENDAR_TASK', item: { id: tarefa.id, projetoId: tarefa.projeto_id },

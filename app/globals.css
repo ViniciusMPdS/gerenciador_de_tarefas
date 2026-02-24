@@ -1,24 +1,15 @@
 @import "tailwindcss";
+@source "../node_modules/@uploadthing/react/dist";
 
 @theme {
   /* --- PALETA DE CORES SUAVE (ZINC) --- */
-  
-  /* Background: Não é preto absoluto (#000), é um chumbo profundo */
   --color-background: #18181b; 
-  
-  /* Superfícies (Cards, Sidebar, Colunas): Um tom acima do fundo */
   --color-surface: #27272a; 
-  
-  /* Destaques (Hover, itens selecionados) */
   --color-surface-highlight: #3f3f46;
-  
-  /* Bordas: Sutis, para não criar "grades" visuais */
   --color-border: #3f3f46;
 
   /* --- TEXTOS (CONTRASTE CORRIGIDO) --- */
-  /* Principal: Branco levemente "queimado" (não ofusca) */
   --color-foreground: #f4f4f5; 
-  /* Secundário: Cinza claro legível (resolve o problema de "difícil enxergar") */
   --color-text-muted: #a1a1aa; 
   
   /* --- ACENTOS (INDIGO MAIS SUAVE) --- */
@@ -26,24 +17,46 @@
   --color-primary-hover: #818cf8;
 }
 
-/* --- RESET GLOBAL E CORREÇÕES AUTOMÁTICAS --- */
+/* --- LÓGICA DE DENSIDADE (A SOLUÇÃO PROFISSIONAL) --- */
+
+/* 1. Define o tamanho base padrão (Monitores Grandes) */
+html {
+  font-size: 16px; /* 1rem = 16px (Padrão mundial) */
+}
+
+/* 2. Em Notebooks (Telas menores que 1440px), reduzimos a base */
+@media (max-width: 1440px) {
+  html {
+    font-size: 14px; /* AGORA 1rem = 14px (Tudo diminui 12.5%) */
+  }
+}
+
+/* 3. (Opcional) Em telas muito pequenas ou projetores antigos (1024px) */
+@media (max-width: 1024px) {
+  html {
+    font-size: 13px; /* Tudo fica bem compacto */
+  }
+}
+
+/* --- RESET GLOBAL E ESTILIZAÇÃO --- */
 
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-geist-sans), Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Garante que a transição de tamanho seja suave se redimensionar a janela */
+  transition: font-size 0.2s ease-in-out; 
 }
 
-/* TRUQUE: Força Inputs e Selects a ficarem escuros globalmente 
-   (Isso resolve os campos brancos brilhando na tela) */
+/* TRUQUE: Inputs e Selects escuros */
 input, textarea, select {
   background-color: var(--color-surface) !important;
   border-color: var(--color-border) !important;
   color: var(--color-foreground) !important;
 }
 
-/* Placeholder dos inputs mais legível */
+/* Placeholder legível */
 ::placeholder {
   color: var(--color-text-muted) !important;
   opacity: 0.7;
@@ -51,7 +64,7 @@ input, textarea, select {
 
 /* Scrollbar escura elegante */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 8px; /* O tamanho da barra também vai respeitar a escala se usar rem, mas px é fixo */
   height: 8px;
 }
 ::-webkit-scrollbar-track {
@@ -62,18 +75,7 @@ input, textarea, select {
   border-radius: 4px;
 }
 
-/* --- CORREÇÕES ESPECÍFICAS QUE VOCÊ PEDIU --- */
-
-/* Classes Utilitárias para substituir no HTML se algo ainda estiver estranho */
-
-.bg-surface {
-  background-color: var(--color-surface);
-}
-
-.text-foreground {
-  color: var(--color-foreground);
-}
-
-.text-muted {
-  color: var(--color-text-muted);
-}
+/* Classes Utilitárias (Mantidas por precaução) */
+.bg-surface { background-color: var(--color-surface); }
+.text-foreground { color: var(--color-foreground); }
+.text-muted { color: var(--color-text-muted); }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useDrop } from 'react-dnd'
+import { useRef } from 'react'
+import { useDrag, useDrop } from 'react-dnd'
 import { moverTarefaDeColuna } from '@/app/actions'
 import CardKanban from './CardKanban'
 import { useState } from 'react'
@@ -10,13 +11,67 @@ interface Props {
   tarefas: any[]
   usuarios: any[]
   projetoId: string
+  // --- NOVAS PROPS PARA REORDENAÇÃO ---
+  index?: number
+  moveColuna?: (dragIndex: number, hoverIndex: number) => void
+  onDropColuna?: () => void
+  usuarioId: string
 }
 
-export default function ColunaKanban({ coluna, tarefas, usuarios, projetoId }: Props) {
-  const [isUpdating, setIsUpdating] = useState(false)
+// Tipos de Item para diferenciar o arraste
+const ItemTypes = {
+  TAREFA: 'TAREFA',
+  COLUNA: 'COLUNA'
+}
 
-  const [{ isOver }, dropRef] = useDrop(() => ({
-    accept: 'TAREFA',
+export default function ColunaKanban({ 
+  coluna, 
+  tarefas, 
+  usuarios, 
+  projetoId, 
+  index, 
+  moveColuna,
+  onDropColuna,
+  usuarioId
+}: Props) {
+  const [isUpdating, setIsUpdating] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // --- 1. LÓGICA DE ARRASTAR A COLUNA (REORDENAÇÃO) ---
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.COLUNA,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+    end: () => {
+       // Quando soltar a coluna, chama a função para salvar no banco
+       if (onDropColuna) onDropColuna()
+    }
+  })
+
+  const [, dropColuna] = useDrop({
+    accept: ItemTypes.COLUNA,
+    hover(item: { index: number }) {
+      if (!ref.current) return
+      const dragIndex = item.index
+      const hoverIndex = index
+
+      // Se não passou index (ex: fora do modo kanban), ignora
+      if (dragIndex === undefined || hoverIndex === undefined) return
+      if (dragIndex === hoverIndex) return
+
+      // Troca visualmente
+      if (moveColuna) {
+        moveColuna(dragIndex, hoverIndex)
+        item.index = hoverIndex // Mantém o item atualizado
+      }
+    },
+  })
+
+  // --- 2. LÓGICA DE RECEBER TAREFAS (JÁ EXISTIA) ---
+  const [{ isOverTarefa }, dropTarefa] = useDrop(() => ({
+    accept: ItemTypes.TAREFA,
     drop: (item: { id: string, colunaId: string }) => {
       if (item.colunaId !== coluna.id) {
         setIsUpdating(true)
@@ -25,49 +80,62 @@ export default function ColunaKanban({ coluna, tarefas, usuarios, projetoId }: P
       }
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOverTarefa: monitor.isOver(),
     }),
   }), [coluna.id, projetoId])
 
+  // Inicializa os refs (Colunas arrastáveis apenas se tiver index e função)
+  if (index !== undefined && moveColuna) {
+    drag(dropColuna(ref))
+  }
+
+  // Ref para soltar tarefas (o container inteiro aceita tarefas)
+  // Precisamos de um ref separado ou conectar o dropTarefa ao elemento externo
+  // Simplificando: Vamos usar um div wrapper para a coluna e o ref interno para o drag da coluna
+
   return (
     <div 
-      ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>}
-      // h-full: Garante que a coluna estique até o fim do quadro
-      className={`min-w-[300px] w-[300px] flex-shrink-0 flex flex-col rounded-xl border h-full transition-colors ${
-        isOver ? 'bg-indigo-50 border-indigo-300 shadow-inner' : 'bg-surface/50/50 border-border/60'
-      }`}
+      ref={ref} // A Coluna inteira é arrastável (se tiver props de reordenação)
+      className={`flex-shrink-0 transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'}`}
+      data-handler-id={index} // Ajuda no debug do dnd
     >
-      {/* CABEÇALHO (Fixo) */}
-      <div className="p-3 flex items-center justify-between border-b border-gray-100 bg-surface/50 rounded-t-xl backdrop-blur-sm flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isUpdating ? 'bg-yellow-400 animate-pulse' : 'bg-indigo-500'}`}></div>
-          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide truncate max-w-[180px]" title={coluna.nome}>
-            {coluna.nome}
-          </h3>
+      <div 
+        // Este ref aceita as TAREFAS
+        ref={dropTarefa as unknown as React.LegacyRef<HTMLDivElement>}
+        className={`min-w-[300px] w-[300px] flex flex-col rounded-xl border h-full transition-colors ${
+          isOverTarefa ? 'bg-indigo-50 border-indigo-300 shadow-inner' : 'bg-surface/50 border-border/60'
+        }`}
+      >
+        {/* CABEÇALHO (Onde pegamos para arrastar a coluna) */}
+        <div className="p-3 flex items-center justify-between border-b border-gray-100 bg-surface/50 rounded-t-xl backdrop-blur-sm flex-shrink-0 cursor-grab active:cursor-grabbing">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isUpdating ? 'bg-yellow-400 animate-pulse' : 'bg-indigo-500'}`}></div>
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide truncate max-w-[180px]" title={coluna.nome}>
+              {coluna.nome}
+            </h3>
+          </div>
+          <span className="bg-surface text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-border">
+            {tarefas.length}
+          </span>
         </div>
-        <span className="bg-surface/50 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
-          {tarefas.length}
-        </span>
-      </div>
 
-      {/* ÁREA DE CARDS (Com Scroll Vertical) */}
-      {/* flex-1: Ocupa todo o espaço restante */}
-      {/* overflow-y-auto: Cria scroll apenas aqui se tiver muitas tarefas */}
-      <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar-thin flex-1 min-h-[150px]">
-        {tarefas.map(tarefa => (
-          <CardKanban 
-            key={tarefa.id} 
-            tarefa={tarefa} 
-            usuarios={usuarios} 
-          />
-        ))}
-        
-        {/* Área vazia para soltar tarefa no final */}
-        {tarefas.length === 0 && (
-            <div className="h-full flex items-center justify-center text-xs text-gray-300 italic pointer-events-none">
-                Solte aqui
-            </div>
-        )}
+        {/* ÁREA DE CARDS */}
+        <div className="p-2 space-y-2 overflow-y-auto custom-scrollbar-thin flex-1 min-h-[150px]">
+          {tarefas.map(tarefa => (
+            <CardKanban 
+              key={tarefa.id} 
+              tarefa={tarefa} 
+              usuarios={usuarios}
+              usuarioId={usuarioId}
+            />
+          ))}
+          
+          {tarefas.length === 0 && (
+              <div className="h-full flex items-center justify-center text-xs text-gray-300 italic pointer-events-none min-h-[100px]">
+                  Solte tarefas aqui
+              </div>
+          )}
+        </div>
       </div>
     </div>
   )

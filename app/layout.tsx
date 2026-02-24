@@ -1,15 +1,26 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport} from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { prisma } from '@/lib/prisma';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { auth } from '@/auth'
+import { Icon } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Gerenciador de Projetos",
+  title: "Flow",
   description: "Sistema de Gestão",
+  icons: {
+    icon: '/favicon.ico',
+  }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // maximumScale: 1, // Opcional: Impede o usuário de dar zoom manual (deixa com cara de app nativo)
+  // userScalable: false, // Opcional: Junto com o de cima, trava o zoom
 };
 
 export default async function RootLayout({

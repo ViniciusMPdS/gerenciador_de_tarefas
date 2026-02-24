@@ -5,6 +5,10 @@ import { revalidatePath } from 'next/cache'
 import { auth, signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import bcrypt from 'bcryptjs'
+import { Recorrencia, CampoAlterado } from '@prisma/client'
+import { UTApi } from "uploadthing/server";
+
+const utapi = new UTApi();
 
 // --- AUTENTICAÇÃO ---
 export async function authenticate(
@@ -31,76 +35,175 @@ export async function authenticate(
   }
 }
 
+// --- NOVO: Alternar Status do Projeto (Arquivar/Desarquivar) ---
+export async function toggleStatusProjeto(projetoId: string) {
+  const projeto = await prisma.projeto.findUnique({ where: { id: projetoId } })
+  
+  if (!projeto) return
+
+  await prisma.projeto.update({
+    where: { id: projetoId },
+    data: { ativo: !projeto.ativo }
+  })
+
+  revalidatePath('/')
+  revalidatePath('/projetos')
+  revalidatePath(`/projeto/${projetoId}`)
+  revalidatePath('/minhas-tarefas')
+  revalidatePath('/sprint')
+}
+
 // --- TAREFAS ---
 
-export async function criarTarefa(formData: FormData) {
-  const titulo = formData.get('titulo') as string
-  const descricao = formData.get('descricao') as string 
-  const prioridadeId = Number(formData.get('prioridadeId'))
-  const dificuldadeId = Number(formData.get('dificuldadeId'))
-  
-  const projetoId = formData.get('projetoId') as string
-  const usuarioId = formData.get('usuarioId') as string
-  const dtVencimentoStr = formData.get('dtVencimento') as string
-  let colunaId = formData.get('colunaId') as string
+interface CriarTarefaDTO {
+  titulo: string
+  descricao: string
+  dt_vencimento: Date | null
+  projeto_id: string
+  coluna_id?: string
+  usuario_id: string | null
+  prioridade_id: number
+  dificuldade_id: number
+  recorrencia?: Recorrencia
+}
 
-  if (!titulo || !descricao || !prioridadeId || !dificuldadeId || !projetoId || !usuarioId || !dtVencimentoStr) return 
+export async function criarTarefa(data: CriarTarefaDTO) {
+  if (!data.titulo || !data.projeto_id) return 
+
+  let colunaId = data.coluna_id
 
   if (!colunaId) {
      const primeiraColuna = await prisma.projetoColuna.findFirst({
-        where: { projeto_id: projetoId },
+        where: { projeto_id: data.projeto_id },
         orderBy: { ordem: 'asc' }
      })
      if (primeiraColuna) colunaId = primeiraColuna.coluna_id
   }
 
-  await prisma.tarefa.create({
+  const novaTarefa = await prisma.tarefa.create({
     data: {
-      titulo,
-      descricao,
-      prioridade_id: prioridadeId,
-      dificuldade_id: dificuldadeId,
+      titulo: data.titulo,
+      descricao: data.descricao,
+      prioridade_id: data.prioridade_id,
+      dificuldade_id: data.dificuldade_id,
       concluida: false,
       coluna_id: colunaId || undefined,
-      projeto_id: projetoId,
-      usuario_id: usuarioId,
-      dt_vencimento: new Date(dtVencimentoStr)
+      projeto_id: data.projeto_id,
+      usuario_id: data.usuario_id || null,
+      dt_vencimento: data.dt_vencimento,
+      recorrencia: data.recorrencia || 'NAO'
     },
   })
 
-  revalidatePath(`/projeto/${projetoId}`)
+  const session = await auth()
+  if (session?.user?.email) {
+      const userLog = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+      if (userLog) {
+          await prisma.historicoTarefa.create({
+              data: {
+                  tarefa_id: novaTarefa.id,
+                  usuario_id: userLog.id,
+                  campo: 'CRIACAO',
+                  valor_novo: novaTarefa.titulo
+              }
+          })
+      }
+  }
+
+  revalidatePath(`/projeto/${data.projeto_id}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
-// --- NOVA FUNÇÃO DE ATUALIZAR (Para o Modal de Edição) ---
+interface AtualizarTarefaDTO {
+  titulo: string
+  descricao: string
+  dt_vencimento: Date | null
+  prioridade_id: number
+  dificuldade_id: number
+  usuario_id: string | null
+  coluna_id?: string
+  recorrencia?: Recorrencia
+}
+
 export async function atualizarTarefa(
   tarefaId: string, 
-  dados: { 
-    titulo: string; 
-    descricao: string; 
-    prioridadeId: number; 
-    dificuldadeId: number; 
-    usuarioId: string 
-  },
+  data: AtualizarTarefaDTO,
   projetoId: string
 ) {
   const session = await auth()
-  if (!session) return
+  if (!session?.user?.email) return
+
+  const quemAlterou = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (!quemAlterou) return
+
+  const tarefaAntiga = await prisma.tarefa.findUnique({
+      where: { id: tarefaId },
+      include: { prioridade: true, dificuldade: true, usuario: true, coluna: true }
+  })
+  if (!tarefaAntiga) return
 
   await prisma.tarefa.update({
     where: { id: tarefaId },
     data: {
-      titulo: dados.titulo,
-      descricao: dados.descricao,
-      prioridade_id: dados.prioridadeId,
-      dificuldade_id: dados.dificuldadeId,
-      
-      // CORREÇÃO: Usamos direto o ID. Se vier vazio, mandamos null.
-      // Isso evita o conflito de tipos do Prisma.
-      usuario_id: dados.usuarioId || null, 
+      titulo: data.titulo,
+      descricao: data.descricao,
+      prioridade_id: data.prioridade_id,
+      dificuldade_id: data.dificuldade_id,
+      usuario_id: data.usuario_id || null, 
+      dt_vencimento: data.dt_vencimento,
+      coluna_id: data.coluna_id,
+      recorrencia: data.recorrencia
     }
   })
+
+  const logsParaCriar = []
+
+  if (tarefaAntiga.titulo !== data.titulo) {
+      logsParaCriar.push({ campo: CampoAlterado.TITULO, antigo: tarefaAntiga.titulo, novo: data.titulo })
+  }
+  if ((tarefaAntiga.descricao || '') !== (data.descricao || '')) {
+      logsParaCriar.push({ campo: CampoAlterado.DESCRICAO, antigo: null, novo: 'Alterada' })
+  }
+  const dataAntigaISO = tarefaAntiga.dt_vencimento?.toISOString()
+  const dataNovaISO = data.dt_vencimento?.toISOString()
+  if (dataAntigaISO !== dataNovaISO) {
+      logsParaCriar.push({ 
+          campo: CampoAlterado.DT_VENCIMENTO, 
+          antigo: tarefaAntiga.dt_vencimento ? tarefaAntiga.dt_vencimento.toLocaleDateString('pt-BR') : 'Sem data', 
+          novo: data.dt_vencimento ? data.dt_vencimento.toLocaleDateString('pt-BR') : 'Sem data' 
+      })
+  }
+  if (tarefaAntiga.prioridade_id !== data.prioridade_id) {
+      logsParaCriar.push({ campo: CampoAlterado.PRIORIDADE, antigo: tarefaAntiga.prioridade.nome, novo: data.prioridade_id.toString() })
+  }
+  if (tarefaAntiga.usuario_id !== data.usuario_id) {
+      logsParaCriar.push({ 
+          campo: CampoAlterado.RESPONSAVEL, 
+          antigo: tarefaAntiga.usuario?.nome || 'Sem dono', 
+          novo: data.usuario_id ? 'Novo Responsável' : 'Sem dono' 
+      })
+  }
+  if (tarefaAntiga.coluna_id !== data.coluna_id) {
+     logsParaCriar.push({ 
+         campo: CampoAlterado.COLUNA, 
+         antigo: tarefaAntiga.coluna?.nome || 'N/A', 
+         novo: 'Nova Etapa' 
+     })
+  }
+
+  if (logsParaCriar.length > 0) {
+      await prisma.historicoTarefa.createMany({
+          data: logsParaCriar.map(log => ({
+              tarefa_id: tarefaId,
+              usuario_id: quemAlterou.id,
+              campo: log.campo,
+              valor_antigo: log.antigo,
+              valor_novo: log.novo,
+              dt_evento: new Date()
+          }))
+      })
+  }
 
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath('/minhas-tarefas')
@@ -108,9 +211,20 @@ export async function atualizarTarefa(
 }
 
 export async function concluirTarefaComComentario(tarefaId: string, comentario: string, projetoId: string, usuarioId: string) {
+  const tarefaOriginal = await prisma.tarefa.findUnique({ where: { id: tarefaId } });
+  
   await prisma.tarefa.update({
     where: { id: tarefaId },
     data: { concluida: true, dt_conclusao: new Date() }
+  })
+
+  await prisma.historicoTarefa.create({
+      data: {
+          tarefa_id: tarefaId,
+          usuario_id: usuarioId,
+          campo: 'CONCLUSAO',
+          valor_novo: 'Comentário: ' + comentario
+      }
   })
 
   if (comentario) {
@@ -118,83 +232,208 @@ export async function concluirTarefaComComentario(tarefaId: string, comentario: 
       data: { texto: `🏁 ENCERRAMENTO: ${comentario}`, tarefa_id: tarefaId, usuario_id: usuarioId }
     })
   }
+
+  if (tarefaOriginal && tarefaOriginal.recorrencia !== 'NAO' && tarefaOriginal.dt_vencimento) {
+      const novaData = new Date(tarefaOriginal.dt_vencimento)
+      
+      if (tarefaOriginal.recorrencia === 'DIARIAMENTE') novaData.setDate(novaData.getDate() + 1)
+      else if (tarefaOriginal.recorrencia === 'SEMANALMENTE') novaData.setDate(novaData.getDate() + 7)
+      else if (tarefaOriginal.recorrencia === 'MENSALMENTE') novaData.setMonth(novaData.getMonth() + 1)
+
+      await prisma.tarefa.create({
+          data: {
+              titulo: tarefaOriginal.titulo,
+              descricao: tarefaOriginal.descricao,
+              projeto_id: tarefaOriginal.projeto_id,
+              usuario_id: tarefaOriginal.usuario_id,
+              prioridade_id: tarefaOriginal.prioridade_id,
+              dificuldade_id: tarefaOriginal.dificuldade_id,
+              coluna_id: tarefaOriginal.coluna_id,
+              recorrencia: tarefaOriginal.recorrencia, 
+              dt_vencimento: novaData,
+              concluida: false
+          }
+      })
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
-// Essa função antiga (editarTarefa com FormData) pode ser mantida ou removida, 
-// mas a nova `atualizarTarefa` acima é a que o Modal usa.
 export async function editarTarefa(formData: FormData) {
-  const id = formData.get('id') as string
-  const projeto_id = formData.get('projetoId') as string
-  const titulo = formData.get('titulo') as string
-  const descricao = formData.get('descricao') as string
-  
-  const prioridadeId = Number(formData.get('prioridadeId'))
-  const dificuldadeId = Number(formData.get('dificuldadeId'))
-  
-  const usuario_id = formData.get('usuarioId') as string
-  const dt_vencimento = formData.get('dtVencimento') as string ? new Date(formData.get('dtVencimento') as string) : null
-
-  await prisma.tarefa.update({
-    where: { id },
-    data: { 
-        titulo, 
-        descricao, 
-        prioridade_id: prioridadeId, 
-        dificuldade_id: dificuldadeId, 
-        dt_vencimento, 
-        usuario_id 
-    }
-  })
-  revalidatePath(`/projeto/${projeto_id}`)
-  revalidatePath(`/minhas-tarefas`)
-  revalidatePath(`/sprint`)
 }
 
-export async function adicionarComentario(formData: FormData) {
-  const texto = formData.get('texto') as string
-  const tarefaId = formData.get('tarefaId') as string
-  const projetoId = formData.get('projetoId') as string
-  const usuarioId = formData.get('usuarioId') as string 
-
-  if (!texto || !tarefaId || !usuarioId) return null
+export async function adicionarComentario(tarefaId: string, texto: string, imagemUrl?: string | null) {
+  const session = await auth()
+  if (!session?.user?.email) return null
+  
+  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (!texto && !imagemUrl) return null // Impede comentário vazio
+  if (!tarefaId || !usuario) return null
 
   const novoComentario = await prisma.comentario.create({
-    data: { texto, tarefa_id: tarefaId, usuario_id: usuarioId },
+    data: { 
+        texto: texto || "", // Garante string vazia se for só imagem
+        tarefa_id: tarefaId, 
+        usuario_id: usuario.id,
+        imagemUrl: imagemUrl || null
+    },
     include: { usuario: true }
   })
-  revalidatePath(`/projeto/${projetoId}`)
-  revalidatePath(`/minhas-tarefas`)
-  revalidatePath(`/sprint`)
+  
+  revalidatePath('/')
+  revalidatePath('/minhas-tarefas')
+  revalidatePath('/sprint')
+  
   return novoComentario
 }
 
-export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string, projetoId: string) {
-  await prisma.tarefa.update({
-    where: { id: tarefaId },
-    data: { coluna_id: novaColunaId }
+export async function excluirComentario(comentarioId: string, usuarioSolicitanteId: string) {
+  'use server'
+
+  const comentario = await prisma.comentario.findUnique({
+    where: { id: comentarioId },
+    include: { usuario: true }
   })
+
+  if (!comentario) {
+    throw new Error("Comentário não encontrado.")
+  }
+
+  const ehDono = comentario.usuario_id === usuarioSolicitanteId
+  const ehAdmin = false 
+
+  if (!ehDono && !ehAdmin) {
+    throw new Error("Você não tem permissão para excluir este comentário.")
+  }
+
+  await prisma.comentario.delete({
+    where: { id: comentarioId }
+  })
+
+  revalidatePath('/')
+  return true
+}
+
+export async function editarComentario(comentarioId: string, novoTexto: string, usuarioSolicitanteId: string) {
+  'use server'
+
+  const comentario = await prisma.comentario.findUnique({
+    where: { id: comentarioId }
+  })
+
+  if (!comentario) {
+    throw new Error("Comentário não encontrado.")
+  }
+
+  if (comentario.usuario_id !== usuarioSolicitanteId) {
+    throw new Error("Apenas o autor pode editar o comentário.")
+  }
+
+  await prisma.comentario.update({
+    where: { id: comentarioId },
+    data: { 
+      texto: novoTexto,
+      dt_update: new Date()
+    }
+  })
+
+  revalidatePath('/')
+  return true
+}
+
+export async function moverTarefaDeColuna(tarefaId: string, novaColunaId: string, projetoId: string) {
+  const session = await auth()
+  
+  const tarefaAntiga = await prisma.tarefa.findUnique({ 
+      where: { id: tarefaId },
+      include: { coluna: true }
+  })
+
+  if (!tarefaAntiga) return
+
+  if (tarefaAntiga.coluna_id !== novaColunaId) {
+      
+      await prisma.tarefa.update({
+        where: { id: tarefaId },
+        data: { coluna_id: novaColunaId }
+      })
+
+      if (session?.user?.email) {
+          const quemMoveu = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+          if (quemMoveu) {
+              const novaColunaNome = await prisma.coluna.findUnique({ where: { id: novaColunaId }})
+
+              await prisma.historicoTarefa.create({
+                  data: {
+                      tarefa_id: tarefaId,
+                      usuario_id: quemMoveu.id,
+                      campo: 'COLUNA',
+                      valor_antigo: tarefaAntiga.coluna?.nome || 'N/A',
+                      valor_novo: novaColunaNome?.nome || 'Nova Coluna'
+                  }
+              })
+          }
+      }
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
 }
 
 export async function toggleConcluida(tarefaId: string, isConcluida: boolean, projetoId: string) {
-  await prisma.tarefa.update({
+  const session = await auth()
+
+  const tarefaAtualizada = await prisma.tarefa.update({
     where: { id: tarefaId },
     data: { concluida: isConcluida, dt_conclusao: isConcluida ? new Date() : null }
   })
+
+  if (session?.user?.email) {
+      const quemFez = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+      if (quemFez) {
+          await prisma.historicoTarefa.create({
+              data: {
+                  tarefa_id: tarefaId,
+                  usuario_id: quemFez.id,
+                  campo: isConcluida ? 'CONCLUSAO' : 'REABERTURA',
+                  valor_novo: isConcluida ? 'Concluída via Checkbox' : 'Reaberta'
+              }
+          })
+      }
+  }
+
+  if (isConcluida && tarefaAtualizada.recorrencia !== 'NAO' && tarefaAtualizada.dt_vencimento) {
+      const novaData = new Date(tarefaAtualizada.dt_vencimento)
+      
+      if (tarefaAtualizada.recorrencia === 'DIARIAMENTE') novaData.setDate(novaData.getDate() + 1)
+      else if (tarefaAtualizada.recorrencia === 'SEMANALMENTE') novaData.setDate(novaData.getDate() + 7)
+      else if (tarefaAtualizada.recorrencia === 'MENSALMENTE') novaData.setMonth(novaData.getMonth() + 1)
+
+      await prisma.tarefa.create({
+          data: {
+              titulo: tarefaAtualizada.titulo,
+              descricao: tarefaAtualizada.descricao,
+              projeto_id: tarefaAtualizada.projeto_id,
+              usuario_id: tarefaAtualizada.usuario_id,
+              prioridade_id: tarefaAtualizada.prioridade_id,
+              dificuldade_id: tarefaAtualizada.dificuldade_id,
+              coluna_id: tarefaAtualizada.coluna_id,
+              recorrencia: tarefaAtualizada.recorrencia,
+              dt_vencimento: novaData,
+              concluida: false
+          }
+      })
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
 }
 
-// --- ATUALIZADO: Excluir Tarefa (Apaga comentários antes) ---
 export async function excluirTarefa(tarefaId: string, projetoId: string) {
-  // Apaga comentários primeiro para não dar erro de chave estrangeira
-  await prisma.comentario.deleteMany({
-    where: { tarefa_id: tarefaId }
-  })
+  await prisma.comentario.deleteMany({ where: { tarefa_id: tarefaId } })
+  await prisma.historicoTarefa.deleteMany({ where: { tarefa_id: tarefaId } })
 
   await prisma.tarefa.delete({ where: { id: tarefaId } })
   
@@ -205,7 +444,27 @@ export async function excluirTarefa(tarefaId: string, projetoId: string) {
 }
 
 export async function atualizarDataTarefa(tarefaId: string, novaData: Date, projetoId: string) {
+  const session = await auth()
+  
+  const tarefaAntiga = await prisma.tarefa.findUnique({ where: { id: tarefaId } })
+
   await prisma.tarefa.update({ where: { id: tarefaId }, data: { dt_vencimento: novaData } })
+
+  if (session?.user?.email && tarefaAntiga) {
+      const quemFez = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+      if (quemFez) {
+          await prisma.historicoTarefa.create({
+              data: {
+                  tarefa_id: tarefaId,
+                  usuario_id: quemFez.id,
+                  campo: 'DT_VENCIMENTO',
+                  valor_antigo: tarefaAntiga.dt_vencimento?.toLocaleDateString('pt-BR'),
+                  valor_novo: novaData.toLocaleDateString('pt-BR')
+              }
+          })
+      }
+  }
+
   revalidatePath(`/projeto/${projetoId}`)
   revalidatePath(`/minhas-tarefas`)
   revalidatePath(`/sprint`)
@@ -324,10 +583,8 @@ export async function getUsuariosDoWorkspace() {
   const session = await auth()
   if (!session?.user?.email) return []
 
-  // Verifica quem está pedindo
   const solicitante = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   
-  // Segurança: Se não for OWNER, não retorna nada
   if (solicitante?.role !== 'OWNER') return []
 
   return await prisma.usuario.findMany({
@@ -336,7 +593,6 @@ export async function getUsuariosDoWorkspace() {
   })
 }
 
-// --- ATUALIZADO: Criar Usuário com ROLE correta ---
 export async function criarNovoUsuario(formData: FormData) {
   const session = await auth()
   if (!session?.user?.email) return { erro: 'Sem permissão' }
@@ -351,10 +607,7 @@ export async function criarNovoUsuario(formData: FormData) {
   const email = formData.get('email') as string
   const senha = formData.get('senha') as string
   const cargo = formData.get('cargo') as string
-  
-  // LER O CARGO ESCOLHIDO NO FORMULÁRIO (MEMBER ou MANAGER)
   let role = formData.get('role') as string
-  // Proteção: Se vier algo estranho, força MEMBER
   if (role !== 'MANAGER') role = 'MEMBER'
 
   const existe = await prisma.usuario.findUnique({ where: { email } })
@@ -368,7 +621,7 @@ export async function criarNovoUsuario(formData: FormData) {
       email,
       senha: senhaHash,
       cargo: cargo || 'Colaborador',
-      role: role, // <--- Agora usa a variável correta
+      role: role, 
       ativo: true,
       workspace_id: solicitante.workspace_id!
     }
@@ -396,4 +649,145 @@ export async function toggleStatusUsuario(usuarioAlvoId: string) {
   })
 
   revalidatePath('/configuracoes/usuarios')
+}
+
+// --- NOVA FUNÇÃO: ALTERAR SENHA (OWNER) ---
+export async function alterarSenhaUsuario(usuarioId: string, novaSenha: string) {
+  const session = await auth()
+  
+  // 1. Verificação de Segurança
+  const solicitante = await prisma.usuario.findUnique({ where: { email: session?.user?.email || '' } })
+  if (solicitante?.role !== 'OWNER') {
+      throw new Error("Apenas o OWNER pode alterar senhas.")
+  }
+
+  // 2. Validação
+  if (!novaSenha || novaSenha.trim() === '') {
+      throw new Error("A senha não pode ser vazia.")
+  }
+
+  // 3. Hash
+  const hashedPassword = await bcrypt.hash(novaSenha, 10)
+
+  // 4. Update
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { senha: hashedPassword }
+  })
+
+  revalidatePath('/configuracoes/usuarios')
+  return { success: true }
+}
+
+export async function reordenarColunas(projetoId: string, colunasIds: string[]) {
+  try {
+    await prisma.$transaction(
+      colunasIds.map((colunaId, index) => 
+        prisma.projetoColuna.update({
+          where: {
+            projeto_id_coluna_id: {
+              projeto_id: projetoId,
+              coluna_id: colunaId
+            }
+          },
+          data: { ordem: index + 1 }
+        })
+      )
+    )
+    revalidatePath(`/projeto/${projetoId}`)
+  } catch (error) {
+    console.error("Erro ao reordenar colunas:", error)
+  }
+}
+
+export async function salvarAnexoNoBanco(dados: {
+    nome: string,
+    url: string,
+    key: string,
+    tamanho: number,
+    tarefaId: string
+}) {
+    'use server'
+    
+    const novoAnexo = await prisma.anexo.create({
+        data: {
+            nome: dados.nome,
+            url: dados.url,
+            key: dados.key,
+            tamanho: dados.tamanho,
+            tarefa_id: dados.tarefaId
+        }
+    })
+
+    revalidatePath('/') 
+    return novoAnexo
+}
+
+export async function excluirAnexo(anexoId: string) {
+    'use server'
+
+    const session = await auth() 
+
+    const anexo = await prisma.anexo.findUnique({
+        where: { id: anexoId },
+        include: { tarefa: true } 
+    })
+
+    if (!anexo) return
+
+    try {
+        await utapi.deleteFiles(anexo.key)
+    } catch (error) {
+        console.error("Erro storage:", error)
+    }
+
+    await prisma.anexo.delete({ where: { id: anexoId } })
+
+    if (session?.user?.email) {
+        const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+        
+        if (usuario) {
+            await prisma.historicoTarefa.create({
+                data: {
+                    tarefa_id: anexo.tarefa_id,
+                    usuario_id: usuario.id,
+                    campo: 'ANEXO_REMOVIDO',
+                    valor_antigo: anexo.nome,
+                    valor_novo: 'Excluído'
+                }
+            })
+        }
+    }
+    
+    revalidatePath('/')
+}
+
+export async function atualizarImagemProjeto(projetoId: string, novaUrlImagem: string) {
+    'use server'
+    
+    const projetoAntigo = await prisma.projeto.findUnique({
+        where: { id: projetoId },
+        select: { imagem: true }
+    })
+
+    if (projetoAntigo?.imagem) {
+        try {
+            const keyAntiga = projetoAntigo.imagem.split('/f/')[1]
+
+            if (keyAntiga) {
+                await utapi.deleteFiles(keyAntiga)
+            }
+        } catch (error) {
+            console.error("Erro ao apagar logo antiga:", error)
+        }
+    }
+
+    await prisma.projeto.update({
+        where: { id: projetoId },
+        data: { imagem: novaUrlImagem }
+    })
+    
+    revalidatePath('/projetos')
+    revalidatePath('/')
+    revalidatePath(`/projeto/${projetoId}`)
 }
