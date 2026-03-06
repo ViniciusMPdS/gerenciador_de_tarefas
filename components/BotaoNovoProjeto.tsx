@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-// import { Plus } from 'lucide-react' // Ou use um svg manual se não tiver lucide
 import ModalCriarProjeto from '@/components/ModalCriarProjeto'
 
-export default function BotaoNovoProjeto() {
+export default function BotaoNovoProjeto({ equipeId }: { equipeId: string }) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -17,8 +16,7 @@ export default function BotaoNovoProjeto() {
         Novo Projeto
       </button>
 
-      {/* O Modal é renderizado aqui, mas só aparece quando isOpen = true */}
-      <ModalCriarProjeto isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <ModalCriarProjeto isOpen={isOpen} onClose={() => setIsOpen(false)} equipeId={equipeId} />
     </>
   )
 }

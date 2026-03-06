@@ -130,9 +130,9 @@ export default function MinhasTarefasClient({ tarefasIniciais, listaProjetos }: 
                          </span>
                          
                          {/* Link para abrir */}
-                         <Link href={`/projeto/${t.projeto_id}`} className="text-gray-300 hover:text-indigo-600">
-                             ↗
-                         </Link>
+                         <Link href={`/equipe/${t.projeto.equipe_id}/projeto/${t.projeto_id}`} className="text-gray-300 hover:text-indigo-600">
+                            ↗
+                        </Link>
                      </div>
                  ))}
              </div>

@@ -10,6 +10,7 @@ interface CardProjetoProps {
     descricao: string | null
     ativo: boolean
     imagem: string | null
+    equipe_id?: string | null // <--- ADICIONAMOS AQUI
     _count: {
         tarefas: number
     }
@@ -19,9 +20,11 @@ interface CardProjetoProps {
 export default function CardProjeto({ projeto }: CardProjetoProps) {
   const router = useRouter()
 
-  // Função de navegação manual
+  // Função de navegação corrigida!
   const handleNavegar = () => {
-    router.push(`/projeto/${projeto.id}`)
+    if (projeto.equipe_id) {
+       router.push(`/equipe/${projeto.equipe_id}/projeto/${projeto.id}`)
+    }
   }
 
   return (
@@ -36,9 +39,6 @@ export default function CardProjeto({ projeto }: CardProjetoProps) {
       `}
     >
       <div className="flex justify-between items-start mb-2 lg:mb-4">
-        {/* IMPORTANTE: Envolvemos o Avatar em uma div que para a propagação.
-            Como agora o pai é uma DIV e não um LINK (<a>), o stopPropagation funciona 100%.
-        */}
         <div onClick={(e) => e.stopPropagation()}>
             <AvatarProjeto 
                 projetoId={projeto.id} 

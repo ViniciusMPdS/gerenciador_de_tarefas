@@ -470,17 +470,32 @@ export async function atualizarDataTarefa(tarefaId: string, novaData: Date, proj
   revalidatePath(`/sprint`)
 }
 
-export async function getColunasDoWorkspace() {
-  const session = await auth()
-  if (!session?.user?.email) return []
-
-  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
-  if (!usuario?.workspace_id) return []
-
+// --- BUSCA COLUNAS DA EQUIPE ---
+export async function getColunasDaEquipe(equipeId: string) {
+  if (!equipeId) return []
   return await prisma.coluna.findMany({
-    where: { workspace_id: usuario.workspace_id },
+    where: { equipe_id: equipeId },
     orderBy: { nome: 'asc' }
   })
+}
+
+// --- CRIA COLUNA VINCULADA À EQUIPE ---
+export async function criarColuna(formData: FormData) {
+  const nome = formData.get('nome') as string
+  const workspaceId = formData.get('workspaceId') as string
+  const equipeId = formData.get('equipeId') as string // <--- Pega a Equipe
+
+  if (!nome || !workspaceId || !equipeId) return
+
+  await prisma.coluna.create({ 
+      data: { 
+          nome, 
+          workspace_id: workspaceId,
+          equipe_id: equipeId // <--- Salva no banco vinculado à Equipe
+      } 
+  })
+  // Revalida a página da equipe atual
+  revalidatePath(`/equipe/${equipeId}/configuracoes/colunas`)
 }
 
 export async function criarProjeto(formData: FormData) {
@@ -492,6 +507,7 @@ export async function criarProjeto(formData: FormData) {
 
   const nome = formData.get('nome') as string
   const descricao = formData.get('descricao') as string
+  const equipeId = formData.get('equipeId') as string // <--- CAPTURA O ID DA EQUIPE
   
   const colunasSelecionadasIds = formData.getAll('colunas') as string[]
 
@@ -500,6 +516,7 @@ export async function criarProjeto(formData: FormData) {
       nome,
       descricao,
       workspace_id: usuario.workspace_id!, 
+      equipe_id: equipeId, // <--- SALVA NO BANCO VINCULADO À EQUIPE
       usuario_id: usuario.id,
       dt_acesso: new Date()
     }
@@ -519,15 +536,7 @@ export async function criarProjeto(formData: FormData) {
   }
 
   revalidatePath('/')
-  revalidatePath('/projetos')
-}
-
-export async function criarColuna(formData: FormData) {
-  const nome = formData.get('nome') as string
-  const workspaceId = formData.get('workspaceId') as string
-  if (!nome || !workspaceId) return
-  await prisma.coluna.create({ data: { nome, workspace_id: workspaceId } })
-  revalidatePath('/configuracoes/colunas')
+  revalidatePath(`/equipe/${equipeId}/projetos`)
 }
 
 export async function excluirColuna(formData: FormData) {
@@ -572,10 +581,16 @@ export async function desvincularColunaDoProjeto(formData: FormData) {
     revalidatePath(`/projeto/${projetoId}`)
 }
 
-export async function getProjetosRecentesSidebar() {
+export async function getProjetosRecentesSidebar(equipeId: string) {
+    if (!equipeId) return []
+    
     return await prisma.projeto.findMany({
+      where: { 
+          equipe_id: equipeId,
+          ativo: true 
+      },
       orderBy: { dt_acesso: 'desc' },
-      take: 10
+      take: 9
     })
 }
 
@@ -790,4 +805,164 @@ export async function atualizarImagemProjeto(projetoId: string, novaUrlImagem: s
     revalidatePath('/projetos')
     revalidatePath('/')
     revalidatePath(`/projeto/${projetoId}`)
+}
+
+
+export async function criarEquipe(formData: FormData) {
+  const session = await auth()
+  if (!session?.user?.email) return // Retorno vazio (void) para satisfazer o TS
+
+  const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (usuarioLogado?.role !== 'OWNER') return // Retorno vazio (void)
+
+  const nome = formData.get('nome') as string
+  if (!nome) return // Retorno vazio (void)
+
+  // Cria a equipe
+  const novaEquipe = await prisma.equipe.create({
+      data: {
+          nome,
+          workspace_id: usuarioLogado.workspace_id!
+      }
+  })
+
+  // Já vincula o criador (OWNER) como LIDER desta nova equipe
+  await prisma.equipeUsuario.create({
+      data: {
+          equipe_id: novaEquipe.id,
+          usuario_id: usuarioLogado.id,
+          role: 'LIDER'
+      }
+  })
+
+  revalidatePath('/configuracoes/equipes')
+  revalidatePath('/', 'layout') // Atualiza a Topbar globalmente
+}
+
+// --- GESTÃO DE DETALHES DA EQUIPE ---
+
+export async function atualizarNomeEquipe(equipeId: string, novoNome: string) {
+  if (!equipeId || !novoNome) return
+  await prisma.equipe.update({
+      where: { id: equipeId },
+      data: { nome: novoNome }
+  })
+  revalidatePath('/configuracoes/equipes')
+  revalidatePath('/', 'layout')
+}
+
+export async function adicionarMembroEquipe(formData: FormData) {
+  const equipeId = formData.get('equipeId') as string
+  const usuarioId = formData.get('usuarioId') as string
+
+  if (!equipeId || !usuarioId) return
+
+  const existe = await prisma.equipeUsuario.findFirst({
+      where: { equipe_id: equipeId, usuario_id: usuarioId }
+  })
+
+  if (!existe) {
+      await prisma.equipeUsuario.create({
+          data: { equipe_id: equipeId, usuario_id: usuarioId, role: 'MEMBER' }
+      })
+  }
+  revalidatePath(`/configuracoes/equipes/${equipeId}`)
+}
+
+export async function removerMembroEquipe(formData: FormData) {
+  const equipeId = formData.get('equipeId') as string
+  const usuarioId = formData.get('usuarioId') as string
+
+  await prisma.equipeUsuario.deleteMany({
+      where: { equipe_id: equipeId, usuario_id: usuarioId }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipeId}`)
+}
+
+
+// --- GESTÃO DE PROJETOS (EDITAR / EXCLUIR) ---
+
+export async function atualizarDetalhesProjeto(projetoId: string, nome: string, descricao: string) {
+  if (!projetoId || !nome) return
+
+  await prisma.projeto.update({
+      where: { id: projetoId },
+      data: { nome, descricao }
+  })
+  
+  revalidatePath('/', 'layout')
+}
+
+export async function excluirProjetoCompleto(projetoId: string) {
+  // 1. Busca todas as tarefas do projeto para limpar as dependências
+  const tarefas = await prisma.tarefa.findMany({ 
+      where: { projeto_id: projetoId }, 
+      select: { id: true } 
+  })
+  const tarefaIds = tarefas.map(t => t.id)
+
+  // 2. Limpa tudo em cascata para não dar erro no banco
+  if (tarefaIds.length > 0) {
+      await prisma.comentario.deleteMany({ where: { tarefa_id: { in: tarefaIds } } })
+      await prisma.historicoTarefa.deleteMany({ where: { tarefa_id: { in: tarefaIds } } })
+      await prisma.anexo.deleteMany({ where: { tarefa_id: { in: tarefaIds } } })
+      await prisma.tarefa.deleteMany({ where: { projeto_id: projetoId } })
+  }
+
+  // 3. Limpa as colunas vinculadas e finalmente o projeto
+  await prisma.projetoColuna.deleteMany({ where: { projeto_id: projetoId } })
+  await prisma.projeto.delete({ where: { id: projetoId } })
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+// --- EXCLUSÃO DE EQUIPA (ZONA DE PERIGO) ---
+
+export async function excluirEquipe(equipeId: string) {
+  const session = await auth()
+  if (!session?.user?.email) return { erro: 'Sem permissão' }
+
+  const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session.user.email } })
+  if (usuarioLogado?.role !== 'OWNER') return { erro: 'Apenas admins podem excluir equipas' }
+
+  // 1. Procura todos os projetos desta equipa
+  const projetos = await prisma.projeto.findMany({ 
+      where: { equipe_id: equipeId }, 
+      select: { id: true } 
+  })
+  const projetosIds = projetos.map(p => p.id)
+
+  // 2. Se houver projetos, limpa tudo o que está dentro deles
+  if (projetosIds.length > 0) {
+      const tarefas = await prisma.tarefa.findMany({ 
+          where: { projeto_id: { in: projetosIds } }, 
+          select: { id: true } 
+      })
+      const tarefasIds = tarefas.map(t => t.id)
+
+      if (tarefasIds.length > 0) {
+          await prisma.comentario.deleteMany({ where: { tarefa_id: { in: tarefasIds } } })
+          await prisma.historicoTarefa.deleteMany({ where: { tarefa_id: { in: tarefasIds } } })
+          await prisma.anexo.deleteMany({ where: { tarefa_id: { in: tarefasIds } } })
+          await prisma.tarefa.deleteMany({ where: { projeto_id: { in: projetosIds } } })
+      }
+
+      await prisma.projetoColuna.deleteMany({ where: { projeto_id: { in: projetosIds } } })
+      await prisma.projeto.deleteMany({ where: { equipe_id: equipeId } })
+  }
+
+  // 3. Apaga as colunas (etapas) exclusivas da equipa
+  await prisma.coluna.deleteMany({ where: { equipe_id: equipeId } })
+
+  // 4. Remove os utilizadores da equipa
+  await prisma.equipeUsuario.deleteMany({ where: { equipe_id: equipeId } })
+
+  // 5. Finalmente, apaga a equipa
+  await prisma.equipe.delete({ where: { id: equipeId } })
+
+  revalidatePath('/configuracoes/equipes')
+  revalidatePath('/', 'layout')
+  
+  return { sucesso: true }
 }

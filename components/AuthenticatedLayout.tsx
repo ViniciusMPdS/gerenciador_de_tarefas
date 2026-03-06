@@ -1,144 +1,106 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import SidebarRecentes from '@/components/SidebarRecentes'
 import ModalCriarProjeto from '@/components/ModalCriarProjeto' 
+import EquipeTopbar from '@/components/EquipeTopbar'
 import { signOut } from 'next-auth/react'
+import { Menu } from 'lucide-react'
+import Link from 'next/link'
 
-interface Props {
-  children: React.ReactNode
-  usuario: any
-  workspace: any
-  projetosIniciais: any[]
-}
-
-export default function AuthenticatedLayout({ children, usuario, workspace, projetosIniciais }: Props) {
-  const pathname = usePathname(); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+export default function AuthenticatedLayout({ children, usuario, equipeAtual, minhasEquipes, projetosIniciais }: any) {
+  const pathname = usePathname()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showModalProjeto, setShowModalProjeto] = useState(false)
-  
-  const isLoginPage = pathname?.startsWith('/login');
 
-  if (isLoginPage) {
-    return (
-        <main className="min-h-screen bg-surface/50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            {children}
-        </main>
-    );
+  // Ignora o layout se for a tela de login
+  if (pathname?.startsWith('/login')) {
+      return <main className="min-h-screen bg-surface/50 flex flex-col justify-center">{children}</main>
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      
-      <ModalCriarProjeto isOpen={showModalProjeto} onClose={() => setShowModalProjeto(false)} />
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <ModalCriarProjeto isOpen={showModalProjeto} onClose={() => setShowModalProjeto(false)} equipeId={equipeAtual?.id}/>
 
-      <aside 
-        className={`${
-          isSidebarOpen ? 'w-64' : 'w-20' 
-        } bg-surface text-white flex flex-col flex-shrink-0 h-full transition-all duration-300 ease-in-out shadow-2xl z-20`}
-      >
-        {/* HEADER */}
-        <div className="h-20 flex items-center px-6 border-b border-white/10 flex-shrink-0 relative">
-            <div className={`w-full transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                <div className="relative w-50 h-20" title={workspace?.nome || 'Home'}> 
-                  <Image 
-                    src="/flow-sem-fundo.png" 
-                    alt="Logo"
-                    fill
-                    className="object-contain object-left"
-                    priority
-                  />
-                </div>
-            </div>
+      {/* CHAMADA DA TOPBAR PASSANDO O BOTÃO COMO PROP */}
+      <EquipeTopbar 
+        equipeAtual={equipeAtual} 
+        minhasEquipes={minhasEquipes || []}
+        botaoMenu={
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-surface-highlight/50 text-gray-400 hover:text-foreground transition-all">
+            <Menu size={20} />
+          </button>
+        }
+      />
 
-            <button 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={`absolute p-2 rounded-md hover:bg-surface/10 text-gray-400 hover:text-white transition-all ${isSidebarOpen ? 'right-2' : 'left-1/2 -translate-x-1/2'}`}
-            >
-                {isSidebarOpen ? '«' : '»'}
-            </button>
-        </div>
-
-        {/* NAVEGAÇÃO PRINCIPAL */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-2 space-y-1">
-              <SidebarLink href="/" icon="🏠" label="Início" isOpen={isSidebarOpen} active={pathname === '/'} />
-              <SidebarLink href="/projetos" icon="📂" label="Projetos" isOpen={isSidebarOpen} active={pathname === '/projetos'} />
-              <SidebarLink href="/minhas-tarefas" icon="✅" label="Tarefas" isOpen={isSidebarOpen} active={pathname === '/minhas-tarefas'} />
-              <SidebarLink href="/sprint" icon="🚀" label="Sprint" isOpen={isSidebarOpen} active={pathname === '/sprint'} />
-              <SidebarLink href="/dashboards" icon="📊" label="Dashboards" isOpen={isSidebarOpen} active={pathname === '/dashboards'} />
-              
-              {/* REMOVI "ETAPAS" DAQUI POIS FOI PARA CONFIGURAÇÕES */}
-            </div>
-
-            <div className={`border-t border-white/5 my-2 ${!isSidebarOpen && 'border-transparent'}`}></div>
-
-            {/* BOTÃO NOVO PROJETO */}
-            <div className={`px-4 py-2 ${!isSidebarOpen && 'flex justify-center'}`}>
-                {isSidebarOpen ? (
-                    <button onClick={() => setShowModalProjeto(true)} className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 hover:text-white hover:bg-surface/5 rounded transition-colors uppercase">
-                        <span>Projetos Recentes</span>
-                        <span className="text-lg leading-none">+</span>
-                    </button>
-                ) : (
-                    <button onClick={() => setShowModalProjeto(true)} className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center shadow-lg" title="Novo Projeto">+</button>
-                )}
-            </div>
-
-            <div className={`flex-1 overflow-y-auto custom-scrollbar-dark ${!isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                <SidebarRecentes inicialProjetos={projetosIniciais} />
-            </div>
-        </div>
-
-        {/* RODAPÉ E CONFIGURAÇÕES */}
-        <div className="mt-auto bg-surface flex-shrink-0">
+      <div className="flex flex-1 overflow-hidden">
+         {/* SIDEBAR */}
+         <aside className={`${isSidebarOpen ? 'w-64' : 'w-[72px]'} bg-surface border-r border-border flex flex-col flex-shrink-0 transition-all duration-300 z-20`}>
             
-             {/* --- BOTÃO DE CONFIGURAÇÕES (HUB) --- */}
-             {usuario?.role === 'OWNER' && (
-                <div className="pt-2 border-t border-white/5 px-2 pb-1">
-                    <SidebarLink 
-                        href="/configuracoes" 
-                        icon="⚙️" 
-                        label="Configurações" 
-                        isOpen={isSidebarOpen} 
-                        active={pathname?.startsWith('/configuracoes')} 
-                    />
+            <div className="flex-1 flex flex-col overflow-hidden pt-4">
+                {/* LINKS DE NAVEGAÇÃO */}
+                <div className="p-2 space-y-1">
+                  {/* O Início agora aponta para a raiz Global (/) */}
+                  <SidebarLink href="/" icon="🏠" label="Início" isOpen={isSidebarOpen} active={pathname === '/'} />
+                  
+                  {/* O Resto aponta para a equipe selecionada */}
+                  {equipeAtual?.id && (
+                      <>
+                          <SidebarLink href={`/equipe/${equipeAtual.id}/projetos`} icon="📂" label="Projetos" isOpen={isSidebarOpen} active={pathname.includes('/projetos')} />
+                          <SidebarLink href={`/equipe/${equipeAtual.id}/minhas-tarefas`} icon="✅" label="Tarefas" isOpen={isSidebarOpen} active={pathname.includes('/minhas-tarefas')} />
+                          <SidebarLink href={`/equipe/${equipeAtual.id}/sprint`} icon="🚀" label="Sprint" isOpen={isSidebarOpen} active={pathname.includes('/sprint')} />
+                          <SidebarLink href={`/equipe/${equipeAtual.id}/dashboards`} icon="📊" label="Dashboards" isOpen={isSidebarOpen} active={pathname.includes('/dashboards')} />
+                      </>
+                  )}
                 </div>
-             )}
 
-             {/* BOTÃO SAIR */}
-             <div className={`px-2 pb-4 ${usuario?.role !== 'OWNER' ? 'pt-4 border-t border-white/5' : 'pt-1'}`}>
-                <button 
-                    onClick={() => signOut({ callbackUrl: '/login' })} 
-                    className={`w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-red-500/20 transition-colors text-gray-300 hover:text-red-400 whitespace-nowrap ${!isSidebarOpen && 'justify-center'}`}
-                    title="Sair do sistema"
-                >
+                <div className={`border-t border-border my-2 ${!isSidebarOpen && 'border-transparent'}`}></div>
+
+                {/* BOTÃO NOVO PROJETO E LISTA RECENTE */}
+                <div className={`px-4 py-2 ${!isSidebarOpen && 'flex justify-center'}`}>
+                    {isSidebarOpen ? (
+                        <button onClick={() => setShowModalProjeto(true)} className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 hover:text-foreground hover:bg-surface-highlight rounded transition-colors uppercase">
+                            <span>Projetos Recentes</span>
+                            <span className="text-lg leading-none">+</span>
+                        </button>
+                    ) : (
+                        <button onClick={() => setShowModalProjeto(true)} className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center shadow-md" title="Novo Projeto">+</button>
+                    )}
+                </div>
+
+                <div className={`flex-1 overflow-y-auto custom-scrollbar-dark ${!isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                    <SidebarRecentes inicialProjetos={projetosIniciais || []} equipeId={equipeAtual?.id} />
+                </div>
+            </div>
+
+            {/* RODAPÉ DA SIDEBAR */}
+            <div className="mt-auto pt-2 border-t border-border pb-4 px-2 bg-surface">
+                {usuario?.role === 'OWNER' && (
+                    <div className="pb-1">
+                        <SidebarLink href="/configuracoes" icon="⚙️" label="Configurações" isOpen={isSidebarOpen} active={pathname?.includes('/configuracoes')} />
+                    </div>
+                )}
+                 <button onClick={() => signOut({ callbackUrl: '/login' })} className={`w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-400 whitespace-nowrap transition-colors ${!isSidebarOpen && 'justify-center'}`} title="Sair">
                     <span className="text-lg">🚪</span>
                     <span className={`ml-3 transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Sair</span>
-                </button>
-             </div>
-        </div>
-      </aside>
+                 </button>
+            </div>
+         </aside>
 
-      <main className="flex-1 overflow-y-auto h-full flex flex-col bg-surface">
-        <div className="flex-1 overflow-y-auto bg-background p-1 lg:p-4">
-             {children}
-        </div>
-      </main>
+         {/* ÁREA DE CONTEÚDO (PÁGINAS) */}
+         <main className="flex-1 overflow-y-auto h-full bg-background p-4 lg:p-6">
+            {children}
+         </main>
+      </div>
     </div>
   )
 }
 
+// COMPONENTE AUXILIAR PARA OS BOTOES DO MENU
 function SidebarLink({ href, icon, label, isOpen, active }: any) {
     return (
-        <Link 
-            href={href} 
-            className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${!isOpen && 'justify-center'} ${active ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-surface/10 hover:text-white'}`} 
-            title={!isOpen ? label : ''}
-        >
+        <Link href={href} className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${!isOpen && 'justify-center'} ${active ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm' : 'text-gray-400 border border-transparent hover:bg-surface-highlight hover:text-foreground'}`} title={!isOpen ? label : ''}>
             <span className="text-lg">{icon}</span>
             <span className={`ml-3 transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{label}</span>
         </Link>

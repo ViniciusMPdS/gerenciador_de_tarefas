@@ -1,24 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { criarProjeto, getColunasDoWorkspace } from '@/app/actions'
+import { criarProjeto, getColunasDaEquipe } from '@/app/actions'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
+  equipeId: string
 }
 
 // Tipo simples para as colunas
 type ColunaOpcao = { id: string; nome: string }
 
-export default function ModalCriarProjeto({ isOpen, onClose }: Props) {
+export default function ModalCriarProjeto({ isOpen, onClose, equipeId }: Props) {
   const [loading, setLoading] = useState(false)
   const [colunasDisponiveis, setColunasDisponiveis] = useState<ColunaOpcao[]>([])
 
   // Busca as colunas do Workspace assim que o modal abre
   useEffect(() => {
     if (isOpen) {
-        getColunasDoWorkspace().then(dados => setColunasDisponiveis(dados))
+        getColunasDaEquipe(equipeId).then(dados => setColunasDisponiveis(dados))
     }
   }, [isOpen])
 
@@ -41,6 +42,7 @@ export default function ModalCriarProjeto({ isOpen, onClose }: Props) {
         </div>
 
         <form action={handleSubmit} className="p-6 space-y-5">
+          <input type="hidden" name="equipeId" value={equipeId} />
           
           {/* Dados Básicos */}
           <div>

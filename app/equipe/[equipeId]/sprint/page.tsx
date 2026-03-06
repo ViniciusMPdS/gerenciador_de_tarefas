@@ -1,14 +1,17 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import MinhasTarefasView from '@/components/MinhasTarefasView'
-import { auth } from '@/auth' // <--- IMPORTADO
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+type Params = { equipeId: string }
 type SearchParams = { view?: string }
 
-export default async function SprintPage(props: { searchParams: Promise<SearchParams> }) {
+// Agora recebemos tanto os params (da URL) quanto os searchParams (dos filtros)
+export default async function SprintPage(props: { params: Promise<Params>, searchParams: Promise<SearchParams> }) {
+  const { equipeId } = await props.params;
   const searchParams = await props.searchParams;
   const view = searchParams.view || 'semana';
 
@@ -19,8 +22,8 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
       const user = await prisma.usuario.findUnique({ where: { email: session.user.email }})
       if (user) usuarioId = user.id
   }
-  // -----------------------------------------
 
+  // --- LÓGICA DE FUSO HORÁRIO E CÁLCULO DA SPRINT ---
   const now = new Date();
   const offsetBrasil = -3; 
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -47,10 +50,14 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
   const dataInicioUTC = new Date(Date.UTC(dataInicio.getFullYear(), dataInicio.getMonth(), dataInicio.getDate(), 0, 0, 0));
   const dataFimUTC = new Date(Date.UTC(dataFim.getFullYear(), dataFim.getMonth(), dataFim.getDate(), 23, 59, 59));
 
+  // --- 2. BUSCA DAS TAREFAS DA EQUIPE NA SPRINT ---
   const tarefas = await prisma.tarefa.findMany({
     where: {
        dt_vencimento: { gte: dataInicioUTC, lte: dataFimUTC }, 
-       projeto: { ativo: true }
+       projeto: { 
+           ativo: true,
+           equipe_id: equipeId // <--- FILTRO DA EQUIPE
+       }
     },
     orderBy: { dt_vencimento: 'asc' },
     include: {
@@ -59,8 +66,12 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     }
   })
 
+  // --- 3. BUSCA DOS PROJETOS DA EQUIPE ---
   const projetos = await prisma.projeto.findMany({
-    where: { ativo: true },
+    where: { 
+        ativo: true,
+        equipe_id: equipeId // <--- FILTRO DA EQUIPE
+    },
     orderBy: { nome: 'asc' },
     include: {
         colunas: {
@@ -70,14 +81,22 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
     }
   })
 
-  const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
+  // --- 4. BUSCA DOS USUÁRIOS DA EQUIPE ---
+  const usuarios = await prisma.usuario.findMany({ 
+      where: {
+          equipes: {
+              some: { equipe_id: equipeId } // <--- FILTRO DA EQUIPE (Apenas membros)
+          }
+      },
+      orderBy: { nome: 'asc' } 
+  })
 
   return (
     <div className="p-0 w-full h-screen flex flex-col">
       <header className="mb-2 flex-shrink-0 flex justify-between items-end px-1">
         <div>
             <h1 className="text-lg lg:text-2xl font-bold text-foreground flex items-center gap-2">
-              Sprint Geral 🚀
+              Sprint da Equipe 🚀
             </h1>
             <p className="text-gray-500 text-[10px] lg:text-xs mt-0.5">
                 <strong className="text-indigo-600 capitalize">{view}</strong> 
@@ -108,11 +127,10 @@ export default async function SprintPage(props: { searchParams: Promise<SearchPa
             tarefasIniciais={tarefas} 
             listaProjetos={projetos}
             usuarios={usuarios} 
-            tituloPagina="Sprint Geral"
+            tituloPagina="Sprint da Equipe"
             enableCalendarNavigation={false} 
             initialCalendarDate={dataInicio}
             calendarViewMode={view === 'mes' ? 'MES' : 'SEMANA'}
-            // --- CORREÇÃO AQUI ---
             usuarioLogadoId={usuarioId}
           />
       </div>
