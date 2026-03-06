@@ -12,7 +12,7 @@ model Workspace {
   nome      String
   dt_insert DateTime  @default(now())
   
-  equipes   Equipe[]  // Ligação nova
+  equipes   Equipe[]
   colunas   Coluna[]
   projetos  Projeto[]
   usuarios  Usuario[]
@@ -21,7 +21,7 @@ model Workspace {
 }
 
 // ==========================================
-// NOVAS TABELAS DE EQUIPE
+// TABELAS DE EQUIPE
 // ==========================================
 
 model Equipe {
@@ -36,6 +36,7 @@ model Equipe {
   membros      EquipeUsuario[]
   projetos     Projeto[]
   colunas      Coluna[]
+  pacotes      PacoteTemplate[] // Nova ligação: Cada equipe tem seus pacotes
 
   @@map("equipe")
 }
@@ -70,7 +71,7 @@ model Usuario {
   role            String            @default("USER")
   workspace_id    String
   
-  equipes         EquipeUsuario[]   // Ligação nova
+  equipes         EquipeUsuario[]
   comentarios     Comentario[]
   acoes_historico HistoricoTarefa[]
   projetos        Projeto[]
@@ -89,7 +90,7 @@ model Coluna {
   dt_update    DateTime        @default(now()) @updatedAt
   equipe_id    String?
   
-  equipe       Equipe?         @relation(fields: [equipe_id], references: [id], onDelete: SetNull) // Ligação nova
+  equipe       Equipe?         @relation(fields: [equipe_id], references: [id], onDelete: SetNull)
   workspace    Workspace       @relation(fields: [workspace_id], references: [id], map: "Coluna_workspace_id_fkey")
   projetos     ProjetoColuna[]
   tarefas      Tarefa[]
@@ -98,23 +99,33 @@ model Coluna {
 }
 
 model Projeto {
-  id           String          @id @default(uuid())
-  nome         String
-  workspace_id String
-  dt_insert    DateTime        @default(now())
-  descricao    String?
-  dt_acesso    DateTime        @default(now())
-  dt_update    DateTime        @default(now()) @updatedAt
-  usuario_id   String
-  ativo        Boolean         @default(true)
-  imagem       String?
-  equipe_id    String?         // Campo novo
+  id             String          @id @default(uuid())
+  nome           String
+  workspace_id   String
+  dt_insert      DateTime        @default(now())
+  descricao      String?
+  dt_acesso      DateTime        @default(now())
+  dt_update      DateTime        @default(now()) @updatedAt
+  usuario_id     String
+  ativo          Boolean         @default(true)
+  imagem         String?
+  equipe_id      String?
   
-  equipe       Equipe?         @relation(fields: [equipe_id], references: [id], onDelete: SetNull) // Ligação nova
-  usuario      Usuario         @relation(fields: [usuario_id], references: [id], map: "Projeto_usuario_id_fkey")
-  workspace    Workspace       @relation(fields: [workspace_id], references: [id], map: "Projeto_workspace_id_fkey")
-  colunas      ProjetoColuna[]
-  tarefas      Tarefa[]
+  // --- NOVOS CAMPOS PARA O PORTFÓLIO MACRO (ONBLOX) ---
+  fase_macro     String?         // Ex: "Modelagem", "Go Live"
+  erp            String?         // Ex: "Winthor", "Sankhya"
+  dados_acesso   String?         // Ex: "TeamViewer: 123 456 | Senha: abc"
+  status_cliente String?         @default("EM_ANDAMENTO") // Ex: "EM_ANDAMENTO", "PAUSADO", "CONCLUIDO"
+  pacote_onblox   String?         // Ex: "WMS + REMOTO"
+  tipo_integracao String?         // Ex: "VIEW", "API", "BANCO DE DADOS"
+  motivo_pausa    String?         // Se o status for PAUSADO
+  // --------------------------------------------------
+
+  equipe         Equipe?         @relation(fields: [equipe_id], references: [id], onDelete: SetNull)
+  usuario        Usuario         @relation(fields: [usuario_id], references: [id], map: "Projeto_usuario_id_fkey")
+  workspace      Workspace       @relation(fields: [workspace_id], references: [id], map: "Projeto_workspace_id_fkey")
+  colunas        ProjetoColuna[]
+  tarefas        Tarefa[]
 
   @@map("projeto")
 }
@@ -218,6 +229,38 @@ model Anexo {
   tarefa    Tarefa   @relation(fields: [tarefa_id], references: [id], onDelete: Cascade, map: "Anexo_tarefa_id_fkey")
 
   @@map("anexo")
+}
+
+// ==========================================
+// NOVAS TABELAS DO MOTOR DE TEMPLATES
+// ==========================================
+
+model PacoteTemplate {
+  id           String           @id @default(uuid())
+  nome         String           // Ex: "Modelagem Macropack"
+  descricao    String?          
+  equipe_id    String
+  dt_insert    DateTime         @default(now())
+  dt_update    DateTime         @default(now()) @updatedAt
+
+  equipe       Equipe           @relation(fields: [equipe_id], references: [id], onDelete: Cascade)
+  tarefas      TarefaTemplate[]
+
+  @@map("pacote_template")
+}
+
+model TarefaTemplate {
+  id             String         @id @default(uuid())
+  titulo         String         // Ex: "Validar Cadastros de Dicon"
+  descricao      String?
+  dificuldade_id Int            @default(1) // Já injeta a tarefa com dificuldade Fácil
+  prioridade_id  Int            @default(1) // Já injeta a tarefa com prioridade Baixa
+  pacote_id      String
+  dt_insert      DateTime       @default(now())
+
+  pacote         PacoteTemplate @relation(fields: [pacote_id], references: [id], onDelete: Cascade)
+
+  @@map("tarefa_template")
 }
 
 enum Recorrencia {

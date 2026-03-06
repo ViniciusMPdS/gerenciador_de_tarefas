@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { criarProjeto, getColunasDaEquipe } from '@/app/actions'
+import { Rocket, Layout } from 'lucide-react' // Ícones novos para os botões
 
 interface Props {
   isOpen: boolean
@@ -9,12 +10,14 @@ interface Props {
   equipeId: string
 }
 
-// Tipo simples para as colunas
 type ColunaOpcao = { id: string; nome: string }
 
 export default function ModalCriarProjeto({ isOpen, onClose, equipeId }: Props) {
   const [loading, setLoading] = useState(false)
   const [colunasDisponiveis, setColunasDisponiveis] = useState<ColunaOpcao[]>([])
+  const [isTemplateOnblox, setIsTemplateOnblox] = useState(false) // <-- ESTADO DA CHAVINHA
+  const [erpSelecionado, setErpSelecionado] = useState('')
+  const [statusSelecionado, setStatusSelecionado] = useState('EM_ANDAMENTO')
 
   // Busca as colunas do Workspace assim que o modal abre
   useEffect(() => {
@@ -43,48 +46,174 @@ export default function ModalCriarProjeto({ isOpen, onClose, equipeId }: Props) 
 
         <form action={handleSubmit} className="p-6 space-y-5">
           <input type="hidden" name="equipeId" value={equipeId} />
+          {/* Action precisa saber se a chavinha tá ativada */}
+          <input type="hidden" name="isTemplateOnblox" value={isTemplateOnblox ? 'true' : 'false'} />
           
-          {/* Dados Básicos */}
+          {/* ========================================== */}
+          {/* SELETOR DE TIPO DE PROJETO                 */}
+          {/* ========================================== */}
+          <div className="flex bg-surface-highlight/30 p-1 rounded-lg border border-border">
+            <button
+              type="button"
+              onClick={() => setIsTemplateOnblox(false)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-md transition-colors ${!isTemplateOnblox ? 'bg-white shadow-sm text-indigo-600 border border-border/50' : 'text-gray-500 hover:text-foreground'}`}
+            >
+              <Layout size={14} /> Projeto em Branco
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTemplateOnblox(true)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-md transition-colors ${isTemplateOnblox ? 'bg-indigo-600 shadow-sm text-white' : 'text-gray-500 hover:text-foreground'}`}
+            >
+              <Rocket size={14} /> Implantação Onblox
+            </button>
+          </div>
+
+          {/* ========================================== */}
+          {/* DADOS BÁSICOS (Sempre aparecem)            */}
+          {/* ========================================== */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Projeto *</label>
-            <input name="nome" type="text" required placeholder="Ex: Website Institucional" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" autoFocus />
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Cliente/Projeto *</label>
+            <input name="nome" type="text" required placeholder="Ex: Macropack Distribuidora" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground" autoFocus />
           </div>
 
           <div>
              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição</label>
-             <textarea name="descricao" rows={2} placeholder="Detalhes do escopo..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" />
+             <textarea name="descricao" rows={2} placeholder="Detalhes adicionais..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-background text-foreground" />
           </div>
 
-          {/* Seleção de Colunas (A Funcionalidade Chave) */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quais etapas este projeto terá?</label>
-            
-            {colunasDisponiveis.length === 0 ? (
-                <div className="p-3 bg-yellow-50 text-yellow-700 text-xs rounded border border-yellow-100">
-                    ⚠️ Seu workspace ainda não tem colunas cadastradas. Vá em Gerenciar Colunas primeiro.
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-surface/50">
-                    {colunasDisponiveis.map(col => (
-                        <label key={col.id} className="flex items-center space-x-2 bg-surface p-2 rounded border cursor-pointer hover:border-indigo-300 transition-colors">
-                            <input 
-                                type="checkbox" 
-                                name="colunas" 
-                                value={col.id}
-                                className="rounded text-indigo-600 focus:ring-indigo-500"
+          {/* ========================================== */}
+          {/* CAMPOS CONDICIONAIS (Onblox ou Branco)     */}
+          {/* ========================================== */}
+          {isTemplateOnblox ? (
+             <div className="space-y-4 border border-indigo-100 bg-indigo-50/30 p-4 rounded-xl animate-in fade-in slide-in-from-top-2 max-h-[50vh] overflow-y-auto">
+                
+                <div className="grid grid-cols-2 gap-4">
+                    
+                    {/* STATUS DO PROJETO */}
+                    <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-800 uppercase mb-1">Status do Projeto *</label>
+                        <select 
+                            name="status_cliente" 
+                            value={statusSelecionado}
+                            onChange={(e) => setStatusSelecionado(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background font-bold text-indigo-700"
+                        >
+                            <option value="EM_ANDAMENTO">🟢 Em Andamento</option>
+                            <option value="PAUSADO">⏸️ Pausado</option>
+                            <option value="CONCLUIDO">✅ Concluído</option>
+                        </select>
+                    </div>
+
+                    {/* MOTIVO DA PAUSA (Só aparece se estiver PAUSADO) */}
+                    {statusSelecionado === 'PAUSADO' && (
+                        <div className="col-span-2 animate-in fade-in zoom-in-95">
+                            <label className="block text-xs font-bold text-red-600 uppercase mb-1">Motivo da Pausa *</label>
+                            <textarea 
+                                name="motivo_pausa" 
+                                required 
+                                rows={2} 
+                                placeholder="Descreva por que o projeto está travado (ex: Aguardando servidor do cliente)..." 
+                                className="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none bg-red-50 text-red-900 resize-none" 
                             />
-                            <span className="text-sm text-gray-700">{col.nome}</span>
-                        </label>
-                    ))}
+                        </div>
+                    )}
+
+                    {/* PACOTE ONBLOX */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold text-gray-800 uppercase mb-1">Pacote Onblox *</label>
+                      <select name="pacote_onblox" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground">
+                          <option value="">Selecione...</option>
+                          <option value="WMS + REMOTO">WMS + REMOTO</option>
+                          <option value="WMS + PRESENCIAL">WMS + PRESENCIAL</option>
+                          <option value="RF + REMOTO">RF + REMOTO</option>
+                          <option value="RF + PRESENCIAL">RF + PRESENCIAL</option>
+                          <option value="START + REMOTO">START + REMOTO</option>
+                          <option value="START + PRESENCIAL">START + PRESENCIAL</option>
+                      </select>
+                    </div>
+
+                    {/* INTEGRAÇÃO */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold text-gray-800 uppercase mb-1">Integração *</label>
+                      <select name="tipo_integracao" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground">
+                          <option value="">Selecione...</option>
+                          <option value="VIEW">VIEW</option>
+                          <option value="API">API</option>
+                          <option value="BANCO DE DADOS">BANCO DE DADOS</option>
+                      </select>
+                    </div>
+
+                    {/* ERP */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold text-gray-800 uppercase mb-1">ERP Principal *</label>
+                      <select 
+                          name="erpSelect" 
+                          required 
+                          onChange={(e) => setErpSelecionado(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground"
+                      >
+                          <option value="">Selecione...</option>
+                          <option value="Winthor">Winthor</option>
+                          <option value="Sankhya">Sankhya</option>
+                          <option value="Protheus">Protheus</option>
+                          <option value="Outro">Outro...</option>
+                      </select>
+                    </div>
+
+                    {/* Acesso */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold text-gray-800 uppercase mb-1">Acesso Remoto</label>
+                      <input name="dadosAcesso" type="text" placeholder="TV: 123 456 / Senha: abc" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground" />
+                    </div>
+
+                    {/* CAMPO CONDICIONAL DE ERP OUTRO */}
+                    {erpSelecionado === 'Outro' && (
+                        <div className="col-span-2 animate-in fade-in zoom-in-95">
+                            <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Qual ERP? *</label>
+                            <input name="erpPersonalizado" type="text" required placeholder="Digite o nome do ERP..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-background text-foreground" />
+                        </div>
+                    )}
                 </div>
-            )}
-            <p className="text-[10px] text-gray-400 mt-1">Selecione na ordem que deseja que apareçam.</p>
-          </div>
+
+                {/* Aviso visual da automação */}
+                <div className="mt-4 p-3 bg-indigo-100/50 border border-indigo-200 rounded-lg">
+                    <p className="text-[11px] text-indigo-800 font-medium flex items-start gap-2">
+                       <Rocket size={16} className="shrink-0 mt-0.5" />
+                       As colunas MODELAGEM, CADASTROS BASICOS, GO LIVE DE PROCESSOS e ATIVIDADES DIA A DIA serão criadas automaticamente nesta ordem.
+                    </p>
+                </div>
+             </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quais etapas este projeto terá?</label>
+              {colunasDisponiveis.length === 0 ? (
+                  <div className="p-3 bg-yellow-50 text-yellow-700 text-xs rounded border border-yellow-100">
+                      ⚠️ Seu workspace ainda não tem colunas cadastradas. Vá em Gerenciar Colunas primeiro.
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-surface/50">
+                      {colunasDisponiveis.map(col => (
+                          <label key={col.id} className="flex items-center space-x-2 bg-surface p-2 rounded border cursor-pointer hover:border-indigo-300 transition-colors">
+                              <input 
+                                  type="checkbox" 
+                                  name="colunas" 
+                                  value={col.id}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-sm text-gray-700">{col.nome}</span>
+                          </label>
+                      ))}
+                  </div>
+              )}
+              <p className="text-[10px] text-gray-400 mt-1">Selecione na ordem que deseja que apareçam.</p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2 border-t mt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-surface/50 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50">
-              {loading ? 'Criando...' : 'Criar Projeto'}
+            <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 flex items-center gap-2">
+              {loading ? 'Processando...' : (isTemplateOnblox ? <><Rocket size={16}/> Lançar Implantação</> : 'Criar Projeto')}
             </button>
           </div>
 

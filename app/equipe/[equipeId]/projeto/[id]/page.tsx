@@ -6,6 +6,7 @@ import BotaoStatusProjeto from '@/components/BotaoStatusProjeto'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import ModalEditarProjeto from '@/components/ModalEditarProjeto'
+import ModalImportarPacote from '@/components/ModalImportarPacote'
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string, equipeId: string }> }) {
   const { id, equipeId } = await params
@@ -35,10 +36,8 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   const projeto = await prisma.projeto.findUnique({
     where: { id },
     include: {
-      colunas: {
-        include: { coluna: true },
-        orderBy: { ordem: 'asc' }
-      }
+      colunas: { include: { coluna: true }, orderBy: { ordem: 'asc' } },
+      equipe: { include: { pacotes: { include: { tarefas: true } } } }
     }
   })
 
@@ -95,6 +94,17 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center gap-3">
           {projeto.ativo && (
             <>
+                {/* --- O BOTÃO DE IMPORTAR PACOTES ENTRA AQUI --- */}
+                {projeto.equipe && (
+                    <ModalImportarPacote 
+                        projetoId={projeto.id}
+                        equipeId={projeto.equipe.id}
+                        pacotes={projeto.equipe.pacotes}
+                        colunas={colunasDoKanban}
+                        usuarios={usuarios} // <--- SÓ ADICIONAR ESTA LINHA AQUI
+                    />
+                )}
+                
                 <ModalConfigProjeto 
                     projeto={projeto} 
                     colunasDisponiveis={bibliotecaColunas} 

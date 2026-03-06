@@ -51,6 +51,7 @@ export default function AuthenticatedLayout({ children, usuario, equipeAtual, mi
                           <SidebarLink href={`/equipe/${equipeAtual.id}/minhas-tarefas`} icon="✅" label="Tarefas" isOpen={isSidebarOpen} active={pathname.includes('/minhas-tarefas')} />
                           <SidebarLink href={`/equipe/${equipeAtual.id}/sprint`} icon="🚀" label="Sprint" isOpen={isSidebarOpen} active={pathname.includes('/sprint')} />
                           <SidebarLink href={`/equipe/${equipeAtual.id}/dashboards`} icon="📊" label="Dashboards" isOpen={isSidebarOpen} active={pathname.includes('/dashboards')} />
+                          <SidebarLink href={`/equipe/${equipeAtual.id}/portfolio`} icon="🎯" label="Portfólio" isOpen={isSidebarOpen} active={pathname.includes('/portfolio')} />
                       </>
                   )}
                 </div>

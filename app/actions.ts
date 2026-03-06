@@ -499,44 +499,108 @@ export async function criarColuna(formData: FormData) {
 }
 
 export async function criarProjeto(formData: FormData) {
+  // --- 1. PEGA O USUÁRIO E WORKSPACE LOGADO COM SEGURANÇA ---
   const session = await auth()
-  if (!session?.user?.email) return
-  
-  const usuario = await prisma.usuario.findUnique({ where: { email: session.user.email } })
-  if (!usuario) return
+  if (!session?.user?.email) return 
+
+  const usuarioLogado = await prisma.usuario.findUnique({
+      where: { email: session.user.email }
+  })
+  if (!usuarioLogado) return
+
+  const usuarioId = usuarioLogado.id
+  const workspaceId = usuarioLogado.workspace_id
+  // ---------------------------------------------------------
 
   const nome = formData.get('nome') as string
   const descricao = formData.get('descricao') as string
-  const equipeId = formData.get('equipeId') as string // <--- CAPTURA O ID DA EQUIPE
+  const equipeId = formData.get('equipeId') as string
   
-  const colunasSelecionadasIds = formData.getAll('colunas') as string[]
+  // --- CAMPOS ONBLOX ---
+  const isTemplateOnblox = formData.get('isTemplateOnblox') === 'true'
+  
+  // Inteligência do ERP (Se for Outro, pega o campo de texto)
+  const erpSelect = formData.get('erpSelect') as string
+  const erpPersonalizado = formData.get('erpPersonalizado') as string
+  const erpFinal = erpSelect === 'Outro' ? erpPersonalizado : erpSelect
 
-  const novoProjeto = await prisma.projeto.create({
-    data: {
-      nome,
-      descricao,
-      workspace_id: usuario.workspace_id!, 
-      equipe_id: equipeId, // <--- SALVA NO BANCO VINCULADO À EQUIPE
-      usuario_id: usuario.id,
-      dt_acesso: new Date()
-    }
+  const dadosAcesso = formData.get('dadosAcesso') as string
+  const pacoteOnblox = formData.get('pacote_onblox') as string
+  const tipoIntegracao = formData.get('tipo_integracao') as string
+  
+  // Status e Pausa
+  const statusCliente = formData.get('status_cliente') as string || 'EM_ANDAMENTO'
+  const motivoPausa = formData.get('motivo_pausa') as string
+
+  // Agora só verificamos o Nome, pois o resto nós garantimos via servidor!
+  if (!nome) return
+
+  // 1. Cria o Projeto
+  const projeto = await prisma.projeto.create({
+      data: {
+          nome,
+          descricao,
+          workspace_id: workspaceId,
+          usuario_id: usuarioId,
+          equipe_id: equipeId || null,
+          ...(isTemplateOnblox && {
+              fase_macro: 'MODELAGEM', 
+              erp: erpFinal,
+              dados_acesso: dadosAcesso,
+              pacote_onblox: pacoteOnblox,
+              tipo_integracao: tipoIntegracao,
+              status_cliente: statusCliente,
+              motivo_pausa: statusCliente === 'PAUSADO' ? motivoPausa : null
+          })
+      }
   })
 
-  if (colunasSelecionadasIds.length > 0) {
-      let ordem = 1
-      for (const colunaId of colunasSelecionadasIds) {
+  // 2. Se for uma Implantação Onblox, injeta as Colunas Padrão automaticamente!
+  if (isTemplateOnblox && equipeId) {
+      const colunasPadrao = [
+          { nome: 'MODELAGEM', cor: '#3b82f6' }, // Azul
+          { nome: 'CADASTROS BASICOS', cor: '#8b5cf6' }, // Roxo
+          { nome: 'GO LIVE DE PROCESSOS', cor: '#10b981' }, // Verde
+          { nome: 'ATIVIDADES DIA A DIA', cor: '#f59e0b' } // Laranja
+      ]
+
+      let ordem = 1;
+      for (const col of colunasPadrao) {
+          // A. Verifica se essa coluna já existe na biblioteca desta equipe
+          let colunaDb = await prisma.coluna.findFirst({
+              where: { nome: col.nome, equipe_id: equipeId, workspace_id: workspaceId }
+          })
+
+          // B. Se não existir, cadastra na biblioteca da equipe
+          if (!colunaDb) {
+              colunaDb = await prisma.coluna.create({
+                  data: {
+                      nome: col.nome,
+                      cor: col.cor,
+                      workspace_id: workspaceId,
+                      equipe_id: equipeId
+                  }
+              })
+          }
+
+          // C. Vincula a coluna ao Projeto Novo na ordem correta
           await prisma.projetoColuna.create({
               data: {
-                  projeto_id: novoProjeto.id,
-                  coluna_id: colunaId,
-                  ordem: ordem++ 
+                  projeto_id: projeto.id,
+                  coluna_id: colunaDb.id,
+                  ordem: ordem
               }
           })
+          ordem++;
       }
   }
 
-  revalidatePath('/')
-  revalidatePath(`/equipe/${equipeId}/projetos`)
+  // Atualiza as telas
+  if (equipeId) {
+      revalidatePath(`/equipe/${equipeId}`)
+  } else {
+      revalidatePath('/')
+  }
 }
 
 export async function excluirColuna(formData: FormData) {
@@ -882,15 +946,43 @@ export async function removerMembroEquipe(formData: FormData) {
 
 // --- GESTÃO DE PROJETOS (EDITAR / EXCLUIR) ---
 
-export async function atualizarDetalhesProjeto(projetoId: string, nome: string, descricao: string) {
-  if (!projetoId || !nome) return
+export async function editarProjeto(formData: FormData) {
+  const id = formData.get('id') as string
+  const nome = formData.get('nome') as string
+  const descricao = formData.get('descricao') as string
+  const equipeId = formData.get('equipeId') as string
+  
+  // --- CAMPOS ONBLOX ---
+  const erp = formData.get('erp') as string
+  const dadosAcesso = formData.get('dadosAcesso') as string
+  const pacoteOnblox = formData.get('pacote_onblox') as string
+  const tipoIntegracao = formData.get('tipo_integracao') as string
+  
+  // Status e Pausa
+  const statusCliente = formData.get('status_cliente') as string
+  const motivoPausa = formData.get('motivo_pausa') as string
+
+  if (!id || !nome) return
 
   await prisma.projeto.update({
-      where: { id: projetoId },
-      data: { nome, descricao }
+      where: { id },
+      data: {
+          nome,
+          descricao,
+          // Atualiza os campos Onblox (se vierem vazios, não tem problema)
+          erp,
+          dados_acesso: dadosAcesso,
+          pacote_onblox: pacoteOnblox,
+          tipo_integracao: tipoIntegracao,
+          status_cliente: statusCliente,
+          // Se o status não for PAUSADO, ele limpa o motivo da pausa
+          motivo_pausa: statusCliente === 'PAUSADO' ? motivoPausa : null
+      }
   })
-  
-  revalidatePath('/', 'layout')
+
+  if (equipeId) {
+      revalidatePath(`/equipe/${equipeId}/projeto/${id}`)
+  }
 }
 
 export async function excluirProjetoCompleto(projetoId: string) {
@@ -965,4 +1057,137 @@ export async function excluirEquipe(equipeId: string) {
   revalidatePath('/', 'layout')
   
   return { sucesso: true }
+}
+
+// ==========================================
+// MOTOR DE TEMPLATES (PACOTES DE TAREFAS)
+// ==========================================
+
+export async function criarPacoteTemplate(formData: FormData) {
+  const equipe_id = formData.get('equipeId') as string
+  const nome = formData.get('nome') as string
+  const descricao = formData.get('descricao') as string
+
+  if (!equipe_id || !nome) return
+
+  await prisma.pacoteTemplate.create({
+      data: { equipe_id, nome, descricao }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipe_id}`)
+}
+
+export async function excluirPacoteTemplate(formData: FormData) {
+  const pacote_id = formData.get('pacoteId') as string
+  const equipe_id = formData.get('equipeId') as string
+
+  if (!pacote_id) return
+
+  // Como colocamos onDelete: Cascade no schema, apagar o pacote já apaga as tarefas dele!
+  await prisma.pacoteTemplate.delete({
+      where: { id: pacote_id }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipe_id}`)
+}
+
+export async function adicionarTarefaTemplate(formData: FormData) {
+  const pacote_id = formData.get('pacoteId') as string
+  const equipe_id = formData.get('equipeId') as string
+  const titulo = formData.get('titulo') as string
+  const descricao = formData.get('descricao') as string
+
+  if (!pacote_id || !titulo) return
+
+  await prisma.tarefaTemplate.create({
+      data: { pacote_id, titulo, descricao }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipe_id}`)
+}
+
+export async function removerTarefaTemplate(formData: FormData) {
+  const tarefa_id = formData.get('tarefaId') as string
+  const equipe_id = formData.get('equipeId') as string
+
+  if (!tarefa_id) return
+
+  await prisma.tarefaTemplate.delete({
+      where: { id: tarefa_id }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipe_id}`)
+}
+
+// ==========================================
+// INJEÇÃO DE PACOTES (O BOTÃO MÁGICO)
+// ==========================================
+
+export async function importarPacoteTarefas(formData: FormData) {
+  const pacoteId = formData.get('pacoteId') as string
+  const projetoId = formData.get('projetoId') as string
+  const colunaId = formData.get('colunaId') as string
+  const equipeId = formData.get('equipeId') as string
+
+  // --- NOVOS CAMPOS (Todos Opcionais) ---
+  const usuarioId = formData.get('usuarioId') as string
+  const dtVencimento = formData.get('dtVencimento') as string
+  const prioridadeId = formData.get('prioridadeId') as string
+  const dificuldadeId = formData.get('dificuldadeId') as string
+
+  if (!pacoteId || !projetoId || !colunaId) return
+
+  const tarefasTemplate = await prisma.tarefaTemplate.findMany({
+      where: { pacote_id: pacoteId }
+  })
+
+  if (tarefasTemplate.length === 0) return
+
+  // Prepara as tarefas fundindo o que vem do Template com o que você escolheu no Modal
+  const novasTarefas = tarefasTemplate.map(t => ({
+      titulo: t.titulo,
+      descricao: t.descricao,
+      projeto_id: projetoId,
+      coluna_id: colunaId,
+      // Se escolheu um usuário no modal, aplica para todas. Se não, deixa sem ninguém (null)
+      usuario_id: usuarioId ? usuarioId : null,
+      // Se escolheu uma data, aplica para todas.
+      dt_vencimento: dtVencimento ? new Date(dtVencimento) : null,
+      // Se escolheu prioridade/dificuldade no modal, sobreescreve a do template
+      prioridade_id: prioridadeId ? parseInt(prioridadeId) : t.prioridade_id,
+      dificuldade_id: dificuldadeId ? parseInt(dificuldadeId) : t.dificuldade_id,
+  }))
+
+  await prisma.tarefa.createMany({
+      data: novasTarefas
+  })
+
+  revalidatePath(`/equipe/${equipeId}/projeto/${projetoId}`)
+}
+
+export async function editarTarefaTemplate(formData: FormData) {
+  const tarefa_id = formData.get('tarefaId') as string
+  const equipe_id = formData.get('equipeId') as string
+  const titulo = formData.get('titulo') as string
+  const descricao = formData.get('descricao') as string
+
+  if (!tarefa_id || !titulo) return
+
+  await prisma.tarefaTemplate.update({
+      where: { id: tarefa_id },
+      data: { titulo, descricao }
+  })
+  revalidatePath(`/configuracoes/equipes/${equipe_id}`)
+}
+
+
+export async function atualizarFaseMacro(formData: FormData) {
+  const projetoId = formData.get('projetoId') as string
+  const novaFase = formData.get('novaFase') as string
+  const equipeId = formData.get('equipeId') as string
+
+  if (!projetoId || !novaFase) return
+
+  await prisma.projeto.update({
+      where: { id: projetoId },
+      data: { fase_macro: novaFase }
+  })
+  
+  revalidatePath(`/equipe/${equipeId}/portfolio`)
 }

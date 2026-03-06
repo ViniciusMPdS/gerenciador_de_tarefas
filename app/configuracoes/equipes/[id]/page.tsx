@@ -2,11 +2,21 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Kanban, Users, Settings } from 'lucide-react'
+import { ArrowLeft, Kanban, Users, Settings, Package, Plus, Trash2 } from 'lucide-react'
 import ItemColuna from '@/components/ItemColuna'
-import { criarColuna, atualizarNomeEquipe, adicionarMembroEquipe, removerMembroEquipe } from '@/app/actions'
+import { 
+    criarColuna, 
+    atualizarNomeEquipe, 
+    adicionarMembroEquipe, 
+    removerMembroEquipe,
+    criarPacoteTemplate,
+    excluirPacoteTemplate,
+    adicionarTarefaTemplate,
+    removerTarefaTemplate
+} from '@/app/actions'
 import { revalidatePath } from 'next/cache'
 import BotaoExcluirEquipe from '@/components/BotaoExcluirEquipe'
+import ItemTarefaTemplate from '@/components/ItemTarefaTemplate'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,12 +47,16 @@ export default async function DetalhesEquipePage({ params }: { params: Promise<{
   const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session.user.email } })
   if (usuarioLogado?.role !== 'OWNER') redirect('/')
 
-  // 1. Busca a Equipe e suas Colunas
+// 1. Busca a Equipe, suas Colunas, Membros e Pacotes (Templates)
   const equipe = await prisma.equipe.findUnique({
     where: { id },
     include: {
         colunas: { orderBy: { nome: 'asc' } },
-        membros: { include: { usuario: true } }
+        membros: { include: { usuario: true } },
+        pacotes: { 
+            include: { tarefas: { orderBy: { dt_insert: 'asc' } } },
+            orderBy: { nome: 'asc' } 
+        } // TRÁS OS PACOTES E TAREFAS AQUI!
     }
   })
 
@@ -141,6 +155,110 @@ export default async function DetalhesEquipePage({ params }: { params: Promise<{
                           ))}
                       </div>
                   )}
+              </div>
+              {/* ========================================== */}
+              {/* BLOCO 3: PACOTES DE TAREFAS (TEMPLATES)    */}
+              {/* ========================================== */}
+              <div className="bg-surface border border-border p-6 rounded-xl shadow-sm mt-8">
+                  <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide flex items-center gap-2">
+                          <Package size={16}/> Pacotes de Tarefas (Templates)
+                      </h2>
+                      <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs font-bold">{equipe.pacotes.length}</span>
+                  </div>
+                  <p className="text-xs text-text-muted mb-6">
+                      Crie grupos de tarefas padrão (ex: "Modelagem") para importar com 1 clique nos projetos desta equipe.
+                  </p>
+
+                  {/* Formulário para Criar Novo Pacote */}
+                  <form action={criarPacoteTemplate} className="flex gap-3 mb-8 bg-background p-4 rounded-lg border border-border">
+                      <input type="hidden" name="equipeId" value={equipe.id} />
+                      <div className="flex-1 space-y-3">
+                          <input 
+                              name="nome" 
+                              placeholder="Nome do Pacote (Ex: Implantação Básica)" 
+                              className="w-full bg-transparent border-b border-border px-2 py-1 outline-none focus:border-indigo-500 text-foreground font-medium text-sm transition-colors"
+                              required
+                          />
+                          <input 
+                              name="descricao" 
+                              placeholder="Descrição rápida (Opcional)" 
+                              className="w-full bg-transparent border-b border-border px-2 py-1 outline-none focus:border-indigo-500 text-text-muted text-xs transition-colors"
+                          />
+                      </div>
+                      <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors self-end text-sm flex items-center gap-2">
+                          <Plus size={16} /> Criar Pacote
+                      </button>
+                  </form>
+
+                  {/* Lista de Pacotes e suas Tarefas */}
+                  <div className="space-y-6">
+                      {equipe.pacotes.length === 0 && (
+                          <div className="p-6 text-center border-2 border-dashed border-border rounded-xl text-gray-400 text-sm">
+                              Nenhum pacote criado.
+                          </div>
+                      )}
+
+                      {equipe.pacotes.map(pacote => (
+                          <div key={pacote.id} className="border border-border rounded-xl overflow-hidden bg-background">
+                              {/* Cabeçalho do Pacote */}
+                              <div className="bg-surface-highlight/30 px-4 py-3 flex justify-between items-center border-b border-border">
+                                  <div>
+                                      <h3 className="font-bold text-foreground text-sm">{pacote.nome}</h3>
+                                      {pacote.descricao && <p className="text-xs text-text-muted">{pacote.descricao}</p>}
+                                  </div>
+                                  <form action={excluirPacoteTemplate}>
+                                      <input type="hidden" name="pacoteId" value={pacote.id} />
+                                      <input type="hidden" name="equipeId" value={equipe.id} />
+                                      <button title="Excluir Pacote" className="text-gray-400 hover:text-red-500 p-1 transition-colors">
+                                          <Trash2 size={16} />
+                                      </button>
+                                  </form>
+                              </div>
+
+                              {/* Área de Tarefas do Pacote */}
+                              <div className="p-4">
+                                  {/* Form para adicionar Tarefa ao Pacote */}
+                                  <form action={adicionarTarefaTemplate} className="flex flex-col gap-2 mb-5 bg-surface-highlight/10 p-3 rounded-lg border border-border border-dashed">
+                                      <input type="hidden" name="pacoteId" value={pacote.id} />
+                                      <input type="hidden" name="equipeId" value={equipe.id} />
+                                      
+                                      <input 
+                                          name="titulo" 
+                                          placeholder="Título da tarefa padrão..." 
+                                          className="w-full bg-surface border border-border rounded px-3 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 text-sm text-foreground font-medium"
+                                          required
+                                      />
+                                      
+                                      <textarea 
+                                          name="descricao" 
+                                          placeholder="Descrição, checklist ou passo a passo (Opcional)..." 
+                                          rows={2}
+                                          className="w-full bg-surface border border-border rounded px-3 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 text-xs text-foreground resize-none"
+                                      />
+                                      
+                                      <button className="bg-surface-highlight hover:bg-border text-foreground px-4 py-1.5 rounded text-sm font-medium transition-colors self-end">
+                                          Adicionar Tarefa
+                                      </button>
+                                  </form>
+
+                                  {/* Lista de Tarefas */}
+                                  <ul className="space-y-2 mt-4">
+                                      {pacote.tarefas.length === 0 && (
+                                          <li className="text-xs text-gray-500 italic px-2">Nenhuma tarefa neste pacote.</li>
+                                      )}
+                                      {pacote.tarefas.map(tarefa => (
+                                          <ItemTarefaTemplate 
+                                              key={tarefa.id} 
+                                              tarefa={tarefa} 
+                                              equipeId={equipe.id} 
+                                          />
+                                      ))}
+                                  </ul>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
               </div>
           </div>
 
