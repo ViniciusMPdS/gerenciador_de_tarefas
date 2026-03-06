@@ -12,9 +12,10 @@ interface Props {
   usuarioId: string
   projetosDisponiveis: any[] 
   usuariosDisponiveis: any[]
+  equipeAtualId: string
 }
 
-export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, projetosDisponiveis, usuariosDisponiveis }: Props) {
+export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, projetosDisponiveis, usuariosDisponiveis, equipeAtualId }: Props) {
   const [abaAtiva, setAbaAtiva] = useState<'PROXIMAS' | 'ATRASADAS'>('PROXIMAS')
   
   // Estado para controlar qual tarefa abrir (Edição)
@@ -121,7 +122,7 @@ export default function DashboardTarefas({ tarefas, usuarioNome, usuarioId, proj
                     </div>
                     <h2 className="font-bold text-foreground">Minhas Tarefas</h2>
                 </div>
-                <Link href="/minhas-tarefas" className="text-xs font-medium text-gray-400 hover:text-indigo-600">Expandir</Link>
+                <Link href={`/equipe/${equipeAtualId}/minhas-tarefas`} className="text-xs font-medium text-gray-400 hover:text-indigo-600">Expandir</Link>
             </div>
 
             {/* ABAS */}

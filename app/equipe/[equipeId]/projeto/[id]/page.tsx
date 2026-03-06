@@ -5,9 +5,10 @@ import ModalCriarTarefa from '@/components/ModalCriarTarefa'
 import BotaoStatusProjeto from '@/components/BotaoStatusProjeto'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import ModalEditarProjeto from '@/components/ModalEditarProjeto'
 
-export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function ProjetoPage({ params }: { params: Promise<{ id: string, equipeId: string }> }) {
+  const { id, equipeId } = await params
   
   // --- BUSCAR USUÁRIO LOGADO ---
   const session = await auth()
@@ -61,7 +62,10 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   const usuarios = await prisma.usuario.findMany()
 
   // 4. Biblioteca Geral
-  const bibliotecaColunas = await prisma.coluna.findMany({ orderBy: { nome: 'asc' } })
+  const bibliotecaColunas = await prisma.coluna.findMany({
+    where: { equipe_id: equipeId },
+    orderBy: { nome: 'asc' } 
+  })
 
   // 5. Colunas do Kanban
   const colunasDoKanban = projeto.colunas.map(pc => pc.coluna);
@@ -73,10 +77,14 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
       <header className="px-8 py-6 bg-surface border-b border-border flex justify-between items-center sticky top-0 z-20">
         <div>
           <div className="flex items-center gap-3">
-             <h1 className={`text-2xl font-bold ${projeto.ativo ? 'text-foreground' : 'text-gray-400 line-through'}`}>
-                {projeto.nome}
-             </h1>
-             <BotaoStatusProjeto projetoId={projeto.id} ativo={projeto.ativo} />
+            <div className="flex items-center">
+                <h1 className={`text-2xl font-bold ${projeto.ativo ? 'text-foreground' : 'text-gray-400 line-through'}`}>
+                    {projeto.nome}
+                </h1>
+                {/* O NOVO MODAL ENTRA AQUI, COLADO NO TÍTULO */}
+                {projeto.ativo && <ModalEditarProjeto projeto={projeto} />}
+            </div>
+            <BotaoStatusProjeto projetoId={projeto.id} ativo={projeto.ativo} />
           </div>
           <p className="text-text-muted text-sm mt-1">{projeto.descricao || 'Sem descrição'}</p>
           {!projeto.ativo && (

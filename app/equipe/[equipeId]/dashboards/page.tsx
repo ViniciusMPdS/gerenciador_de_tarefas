@@ -1,30 +1,29 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import DashboardUI from '@/components/DashboardUI'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 type Props = {
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  params: Promise<{ equipeId: string }>
+  searchParams: Promise<{ [key: string]: string | undefined }>
 }
 
 export default async function DashboardsPage(props: Props) {
+  const { equipeId } = await props.params
   const searchParams = await props.searchParams
   
   const session = await auth()
-  if (!session?.user?.email) return <div>Acesso negado</div>
+  if (!session?.user?.email) redirect('/login')
   
-  const usuarioLogado = await prisma.usuario.findUnique({ where: { email: session.user.email } })
-  if (!usuarioLogado) return <div>Usuário não encontrado</div>
-
-  const workspaceId = usuarioLogado.workspace_id
   const hoje = new Date()
 
   // --- 1. LÓGICA DE FILTROS ---
-  const urlInicio = searchParams?.inicio as string | undefined
-  const urlFim = searchParams?.fim as string | undefined
-  const filtroProjetoId = searchParams?.projetoId as string | undefined
-  const filtroUsuarioId = searchParams?.usuarioId as string | undefined
+  const urlInicio = searchParams?.inicio
+  const urlFim = searchParams?.fim
+  const filtroProjetoId = searchParams?.projetoId
+  const filtroUsuarioId = searchParams?.usuarioId
 
   let dataInicio: Date, dataFim: Date;
 
@@ -42,22 +41,25 @@ export default async function DashboardsPage(props: Props) {
       dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999)
   }
 
-  // --- 2. LISTAS PARA SELECT ---
+  // --- 2. LISTAS PARA SELECT (Filtradas pela Equipe) ---
   const listaProjetos = await prisma.projeto.findMany({
-      where: { workspace_id: workspaceId, ativo: true },
+      where: { equipe_id: equipeId, ativo: true },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true }
   })
 
   const listaUsuarios = await prisma.usuario.findMany({
-      where: { workspace_id: workspaceId, ativo: true },
+      where: { 
+          equipes: { some: { equipe_id: equipeId } },
+          ativo: true 
+      },
       orderBy: { nome: 'asc' },
       select: { id: true, nome: true }
   })
 
-  // --- 3. TAREFAS ---
+  // --- 3. TAREFAS (Filtradas pela Equipe) ---
   const whereClause: any = {
-      projeto: { workspace_id: workspaceId, ativo: true },
+      projeto: { equipe_id: equipeId, ativo: true },
       OR: [
         { dt_vencimento: { gte: dataInicio, lte: dataFim } },
         { dt_conclusao: { gte: dataInicio, lte: dataFim } }
@@ -71,12 +73,12 @@ export default async function DashboardsPage(props: Props) {
     include: { projeto: true, usuario: true, coluna: true }
   })
 
-  // --- 4. HISTÓRICO ---
+  // --- 4. HISTÓRICO (Filtrado pela Equipe) ---
   const historicoDeDatas = await prisma.historicoTarefa.findMany({
       where: {
           campo: 'DT_VENCIMENTO',
           tarefa: { 
-              projeto: { workspace_id: workspaceId },
+              projeto: { equipe_id: equipeId },
               ...(filtroProjetoId ? { projeto_id: filtroProjetoId } : {}),
               ...(filtroUsuarioId ? { usuario_id: filtroUsuarioId } : {}) 
           }
@@ -92,76 +94,46 @@ export default async function DashboardsPage(props: Props) {
       return dataOriginal >= dataInicio && dataOriginal <= dataFim;
   })
 
-  // --- 5. PROCESSAMENTO COM LÓGICA EXCLUSIVA ---
+  // --- 5. PROCESSAMENTO DE DADOS (Mantido Intacto) ---
   const agora = new Date()
 
-  // Métrica Geral
   const resumoGeral = {
       total: tarefas.length,
       concluidas: tarefas.filter(t => t.concluida).length,
       atrasadas: tarefas.filter(t => !t.concluida && t.dt_vencimento && new Date(t.dt_vencimento) < agora).length,
       pendentes: tarefas.filter(t => !t.concluida && t.dt_vencimento && new Date(t.dt_vencimento) > agora).length,
-      taxaPendente: '0',
-      taxaAtraso: '0',
-      taxaConclusao: '0'
+      taxaPendente: '0', taxaAtraso: '0', taxaConclusao: '0'
   }
-  resumoGeral.taxaConclusao = resumoGeral.total > 0 
-    ? ((resumoGeral.concluidas / resumoGeral.total) * 100).toFixed(0) 
-    : '0'
+  resumoGeral.taxaConclusao = resumoGeral.total > 0 ? ((resumoGeral.concluidas / resumoGeral.total) * 100).toFixed(0) : '0'
+  resumoGeral.taxaAtraso = resumoGeral.total > 0 ? ((resumoGeral.atrasadas / resumoGeral.total) * 100).toFixed(0) : '0'
+  resumoGeral.taxaPendente = resumoGeral.total > 0 ? ((resumoGeral.pendentes / resumoGeral.total) * 100).toFixed(0) : '0'
 
-  resumoGeral.taxaAtraso = resumoGeral.total > 0 
-    ? ((resumoGeral.atrasadas / resumoGeral.total) * 100).toFixed(0)
-    : '0'
-
-  resumoGeral.taxaPendente = resumoGeral.total > 0
-  ? ((resumoGeral.pendentes / resumoGeral.total) * 100).toFixed(0)
-  : '0'
-
-  // Mapas
   const mapaProjetos = new Map()
   const mapaUsuarios = new Map()
   const mapaEtapas = new Map()
 
   tarefas.forEach(t => {
-      
-      // 1. Define o Status Exclusivo da Tarefa
-      let isConcluida = false
-      let isAtrasada = false
-      let isPendente = false // Pendente = Aberta no Prazo
-
+      let isConcluida = false, isAtrasada = false, isPendente = false 
       if (t.concluida) {
           isConcluida = true
+      } else if (t.dt_vencimento && new Date(t.dt_vencimento) < agora) {
+          isAtrasada = true
       } else {
-          // Se não concluiu, verifica se venceu
-          if (t.dt_vencimento && new Date(t.dt_vencimento) < agora) {
-              isAtrasada = true
-          } else {
-              // Se não venceu, está "A Fazer" (No prazo)
-              isPendente = true
-          }
+          isPendente = true
       }
 
-      // 2. Preenche Mapa de Projetos
       const pNome = t.projeto.nome
       if (!mapaProjetos.has(pNome)) mapaProjetos.set(pNome, { nome: pNome, total: 0, concluidas: 0, pendentes: 0, atrasadas: 0 })
       const p = mapaProjetos.get(pNome)
       p.total++
-      
-      if (isConcluida) p.concluidas++
-      else if (isAtrasada) p.atrasadas++
-      else if (isPendente) p.pendentes++ // Agora só incrementa aqui se NÃO estiver atrasada
+      if (isConcluida) p.concluidas++; else if (isAtrasada) p.atrasadas++; else if (isPendente) p.pendentes++; 
 
-      // 3. Preenche Mapa de Usuários
       const uNome = t.usuario?.nome || 'Sem Dono'
       if (!mapaUsuarios.has(uNome)) mapaUsuarios.set(uNome, { nome: uNome, concluidas: 0, atrasadas: 0, total: 0 })
       const u = mapaUsuarios.get(uNome)
-      u.total++ // Total de tarefas sob responsabilidade
+      u.total++ 
+      if (isConcluida) u.concluidas++; else if (isAtrasada) u.atrasadas++; 
 
-      if (isConcluida) u.concluidas++
-      else if (isAtrasada) u.atrasadas++
-      // Nota: Não estamos contando "pendentes no prazo" para o usuário nos gráficos atuais, mas poderíamos.
-
-      // 4. Preenche Mapa de Etapas
       if (!isConcluida) {
           const eNome = t.coluna?.nome || 'Não Classificado'
           if (!mapaEtapas.has(eNome)) mapaEtapas.set(eNome, { name: eNome, qtd: 0 })
@@ -169,7 +141,6 @@ export default async function DashboardsPage(props: Props) {
       }
   })
 
-  // Histórico
   const mapaHistoricoProj = new Map()
   historicoFiltrado.forEach(h => {
       const pNome = h.tarefa.projeto.nome
@@ -180,7 +151,7 @@ export default async function DashboardsPage(props: Props) {
   return (
     <div className="p-8 h-full overflow-y-auto bg-background">
       <header className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Dashboards</h1>
+          <h1 className="text-3xl font-bold text-foreground">Dashboards da Equipe</h1>
       </header>
       
       <DashboardUI 
